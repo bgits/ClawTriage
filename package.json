@@ -4,11 +4,13 @@
   "version": "0.1.0",
   "packageManager": "pnpm@9.12.3",
   "scripts": {
-    "dev": "concurrently -n api,worker -c blue,green \"pnpm --filter @clawtriage/api dev\" \"pnpm --filter @clawtriage/worker dev\"",
+    "dev": "concurrently -n api,worker,dashboard -c blue,green,yellow \"pnpm --filter @clawtriage/api dev\" \"pnpm --filter @clawtriage/worker dev\" \"pnpm --filter @clawtriage/dashboard dev\"",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "db:migrate": "pnpm --filter @clawtriage/storage db:migrate",
-    "public:scan": "pnpm --filter @clawtriage/worker public:scan"
+    "public:scan": "pnpm --filter @clawtriage/worker public:scan",
+    "dashboard:build": "pnpm --filter @clawtriage/dashboard build",
+    "dashboard:test": "pnpm --filter @clawtriage/dashboard test"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

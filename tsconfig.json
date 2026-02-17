@@ -5,6 +5,7 @@
     { "path": "./packages/github" },
     { "path": "./packages/storage" },
     { "path": "./apps/api" },
-    { "path": "./apps/worker" }
+    { "path": "./apps/worker" },
+    { "path": "./apps/dashboard" }
   ]
 }

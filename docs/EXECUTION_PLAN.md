@@ -11,7 +11,7 @@ Deliverables:
 - typed config loader (classification_rules.yaml, thresholds.yaml)
 
 Acceptance:
-- `pnpm dev` starts API + worker
+- `pnpm dev` starts API + worker + dashboard
 - can enqueue a dummy job and persist a row in Postgres
 
 ## Phase 1 — GitHub ingest (PRs) + storage
@@ -44,6 +44,26 @@ Output:
 Acceptance:
 - Known duplicate PRs are detected
 - Tests/docs-heavy PRs do not create noise
+
+## Phase 2.5 — Web dashboard for recent runs + duplicate sets (read-only)
+Build:
+- dashboard web app (`apps/dashboard`, React + Vite)
+- dashboard API read endpoints:
+  - `GET /api/repos`
+  - `GET /api/repos/:repoId/triage-queue` (with `orderBy` and richer fields)
+  - `GET /api/repos/:repoId/prs/:prNumber`
+  - `GET /api/repos/:repoId/prs/:prNumber/candidates`
+  - `GET /api/repos/:repoId/duplicate-sets`
+- duplicate-set derivation from latest candidate edges (connected components over filtered edges)
+- direct PR links for fast human review in every panel
+- dashboard auth mode switch (`DASHBOARD_AUTH_MODE=auto|required|disabled`)
+
+Acceptance:
+- Maintainer can select a repo and view recent run outcomes without leaving the dashboard
+- Duplicate sets are human-readable (members + strongest evidence edges + scores)
+- Every surfaced PR/candidate is directly linkable to GitHub
+- No write actions are added (read-only only)
+- Existing quiet output policy remains unchanged (Check Runs preferred)
 
 ## Phase 3 — TypeScript semantic signatures (same-feature)
 Build:

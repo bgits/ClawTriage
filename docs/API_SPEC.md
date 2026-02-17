@@ -2,27 +2,32 @@
 
 This API is for:
 - maintainers triage dashboard
-- operational tooling (rescore/backfill)
-It is **not** intended as a public stable API. Keep it behind auth.
+- operational tooling
+
+It is not a public stable API. Keep it behind auth.
 
 Base URL: `/api`
-
 Content-Type: `application/json`
 
 ---
 
 ## Authentication
 
-### MVP (fast)
+Dashboard/API read routes support token auth with an explicit mode switch.
+
+### Headers
 One of:
 - `Authorization: Bearer <DASHBOARD_TOKEN>`
-- or `X-Admin-Token: <DASHBOARD_TOKEN>`
+- `X-Admin-Token: <DASHBOARD_TOKEN>`
 
-Server config:
-- `DASHBOARD_TOKEN` required in production
+### Server config
+- `DASHBOARD_AUTH_MODE=auto|required|disabled`
+- `DASHBOARD_TOKEN=<token>`
 
-### Later (better)
-GitHub OAuth for maintainers (session cookie) + repo permission checks.
+Mode behavior:
+- `required`: token is always required
+- `disabled`: token checks are bypassed
+- `auto` (default): token is required only when `NODE_ENV=production`
 
 ---
 
@@ -35,26 +40,30 @@ GitHub OAuth for maintainers (session cookie) + repo permission checks.
   "owner": "openclaw",
   "name": "openclaw",
   "defaultBranch": "main",
-  "isActive": true
+  "isActive": true,
+  "installationId": 111111
 }
 ```
 
 ### `TriageQueueItem`
-
 ```json
 {
   "repoId": 123,
   "prNumber": 3101,
   "prId": 999999,
   "headSha": "abcd...",
+  "prUrl": "https://github.com/openclaw/openclaw/pull/3101",
   "title": "Add feature X",
   "authorLogin": "someone",
   "state": "OPEN",
   "updatedAt": "2026-02-17T00:00:00Z",
+  "lastAnalyzedAt": "2026-02-17T00:02:00Z",
   "analysisStatus": "DONE",
+  "analysisRunId": "uuid",
   "topSuggestion": {
     "category": "SAME_FEATURE",
     "candidatePrNumber": 2700,
+    "candidatePrUrl": "https://github.com/openclaw/openclaw/pull/2700",
     "score": 0.82
   },
   "needsReview": true
@@ -62,28 +71,30 @@ GitHub OAuth for maintainers (session cookie) + repo permission checks.
 ```
 
 ### `Candidate`
-
 ```json
 {
   "candidatePrNumber": 2700,
   "candidatePrId": 888888,
   "candidateHeadSha": "dcba...",
+  "candidateUrl": "https://github.com/openclaw/openclaw/pull/2700",
   "rank": 1,
   "category": "SAME_FEATURE",
   "finalScore": 0.82,
   "scores": {
+    "prodDiffExact": 0,
     "prodMinhash": 0.62,
-    "prodFiles": 0.70,
+    "prodFiles": 0.7,
     "prodExports": 0.85,
     "prodSymbols": 0.78,
     "prodImports": 0.66,
-    "testsIntent": 0.40,
-    "docsStruct": 0.10
+    "testsIntent": 0.4,
+    "docsStruct": 0.1
   },
   "evidence": {
     "overlappingProductionPaths": ["src/foo.ts", "src/bar.ts"],
     "overlappingExports": ["createFoo", "FooOptions"],
     "overlappingSymbols": ["FooBuilder", "parseFoo"],
+    "overlappingImports": ["./foo"],
     "testsIntentOverlap": {
       "suiteNames": ["foo parser"],
       "testNames": ["handles empty input"],
@@ -92,13 +103,55 @@ GitHub OAuth for maintainers (session cookie) + repo permission checks.
     "docsOverlap": {
       "headings": ["Design", "Non-goals"],
       "codeFences": ["ts", "bash"]
+    },
+    "similarityValues": {
+      "prodDiffExact": 0,
+      "prodMinhash": 0.62,
+      "prodFiles": 0.7,
+      "prodExports": 0.85,
+      "prodSymbols": 0.78,
+      "prodImports": 0.66,
+      "testsIntent": 0.4,
+      "docsStruct": 0.1
     }
   }
 }
 ```
 
-### `Error format`
+### `DuplicateSet`
+```json
+{
+  "setId": "f3a57f9f0b8cf9f9",
+  "size": 3,
+  "maxScore": 0.94,
+  "categories": ["SAME_CHANGE", "SAME_FEATURE"],
+  "lastAnalyzedAt": "2026-02-17T00:00:00Z",
+  "members": [
+    {
+      "prId": 999,
+      "prNumber": 3101,
+      "headSha": "abcd...",
+      "title": "Add feature X",
+      "url": "https://github.com/openclaw/openclaw/pull/3101",
+      "state": "OPEN",
+      "lastAnalyzedAt": "2026-02-17T00:00:00Z"
+    }
+  ],
+  "strongestEdges": [
+    {
+      "fromPrNumber": 3101,
+      "fromPrUrl": "https://github.com/openclaw/openclaw/pull/3101",
+      "toPrNumber": 2700,
+      "toPrUrl": "https://github.com/openclaw/openclaw/pull/2700",
+      "category": "SAME_FEATURE",
+      "score": 0.82,
+      "evidence": { "overlappingProductionPaths": ["src/foo.ts"] }
+    }
+  ]
+}
+```
 
+### `Error format`
 ```json
 {
   "error": {
@@ -108,86 +161,66 @@ GitHub OAuth for maintainers (session cookie) + repo permission checks.
 }
 ```
 
-### HTTP status codes:
-	•	200 OK
-	•	400 Bad Request
-	•	401 Unauthorized
-	•	403 Forbidden
-	•	404 Not Found
-	•	409 Conflict (idempotency / stale head sha)
-	•	429 Too Many Requests
-	•	500 Internal Error
+HTTP status codes:
+- `200 OK`
+- `400 Bad Request`
+- `401 Unauthorized`
+- `404 Not Found`
+- `500 Internal Error`
 
-### Endpoints
+---
 
-Health
+## Endpoints
 
-GET /api/health
-Returns basic liveness.
+### Health
+`GET /api/health`
 
 Response:
 ```json
 { "ok": true }
 ```
 
-Repositories
-
-GET /api/repos
-List tracked repos.
+### Repositories
+`GET /api/repos`
 
 Response:
-
 ```json
 {
   "repos": [
-    { "repoId": 123, "owner": "openclaw", "name": "openclaw", "defaultBranch": "main", "isActive": true }
+    {
+      "repoId": 123,
+      "owner": "openclaw",
+      "name": "openclaw",
+      "defaultBranch": "main",
+      "isActive": true,
+      "installationId": 111111
+    }
   ]
 }
 ```
 
-POST /api/repos/:repoId/resync
-Triggers a repo metadata refresh (optional).
-
-Body:
-
-```json
-{ "force": false }
-```
-
-```json
-{ "enqueued": true }
-```
-
-PR queue + details
-
-GET /api/repos/:repoId/triage-queue
-List PRs requiring review.
+### Triage queue
+`GET /api/repos/:repoId/triage-queue`
 
 Query params:
-	•	state: OPEN|CLOSED|MERGED (default OPEN)
-	•	needsReview: true|false (default true)
-	•	limit: default 50, max 200
-	•	cursor: opaque string for pagination
-	•	updatedSince: ISO timestamp (optional)
+- `state`: `OPEN|CLOSED|MERGED` (default `OPEN`)
+- `needsReview`: `true|false` (default `true`)
+- `limit`: default `50`, max `200`
+- `cursor`: opaque pagination token
+- `orderBy`: `LAST_ANALYZED_AT|UPDATED_AT` (default `LAST_ANALYZED_AT`)
 
 Response:
 ```json
 {
-  "items": [ /* TriageQueueItem[] */ ],
+  "items": [/* TriageQueueItem[] */],
   "nextCursor": "opaque"
 }
 ```
 
-Definition of needsReview (default logic):
-	•	analysis exists for current head sha
-	•	at least one candidate above the “review threshold”
-	•	and no maintainer feedback recorded for that (pr, head_sha) OR analysis changed since feedback
-
-GET /api/repos/:repoId/prs/:prNumber
-Return PR detail + summary stats.
+### PR details
+`GET /api/repos/:repoId/prs/:prNumber`
 
 Response:
-
 ```json
 {
   "repoId": 123,
@@ -198,19 +231,25 @@ Response:
   "title": "Add feature X",
   "body": "...",
   "authorLogin": "someone",
-  "url": "https://github.com/..",
-  "baseSha": "....",
-  "headSha": "....",
-  "createdAt": "....",
-  "updatedAt": "....",
+  "url": "https://github.com/...",
+  "baseRef": "main",
+  "baseSha": "...",
+  "headRef": "feature-x",
+  "headSha": "...",
+  "createdAt": "...",
+  "updatedAt": "...",
+  "closedAt": null,
+  "mergedAt": null,
   "analysis": {
-    "lastAnalyzedAt": "....",
+    "lastAnalyzedAt": "...",
     "status": "DONE",
     "analysisRunId": "uuid",
     "signatureVersion": 1,
     "algorithmVersion": 1,
     "configVersion": 1,
-    "degradedReasons": null
+    "degradedReasons": null,
+    "finishedAt": "...",
+    "analysisError": null
   },
   "size": {
     "changedFiles": 12,
@@ -226,157 +265,64 @@ Response:
 }
 ```
 
-GET /api/repos/:repoId/prs/:prNumber/files
-Return file list with channels.
+### Candidate results
+`GET /api/repos/:repoId/prs/:prNumber/candidates`
 
 Query params:
-	•	headSha optional; default current PR head
+- `headSha` optional; defaults to latest analyzed head (or current head)
+- `limit` default `10`, max `50`
+- `minScore` optional
 
 Response:
-
-```json
-{
-  "prNumber": 3101,
-  "headSha": "....",
-  "files": [
-    { "path": "src/foo.ts", "status": "MODIFIED", "additions": 10, "deletions": 2, "channel": "PRODUCTION" },
-    { "path": "src/foo.test.ts", "status": "ADDED", "additions": 400, "deletions": 0, "channel": "TESTS" }
-  ]
-}
-```
-
-Candidate results
-
-GET /api/repos/:repoId/prs/:prNumber/candidates
-Return ranked candidates for the latest analysis run.
-
-Query params:
-	•	headSha optional; default current
-	•	limit default 10, max 50
-	•	minCategory optional (e.g. exclude RELATED)
-	•	minScore optional
-
-Response:
-
 ```json
 {
   "analysisRunId": "uuid",
   "prNumber": 3101,
   "headSha": "....",
-  "candidates": [ /* Candidate[] */ ]
+  "candidates": [/* Candidate[] */]
 }
 ```
 
-POST /api/repos/:repoId/prs/:prNumber/rescore
-Enqueue a re-analysis for current head sha.
+### Duplicate sets (derived, not persisted clusters)
+`GET /api/repos/:repoId/duplicate-sets`
 
-Body:
-
-```json
-{ "force": false }
-```
-
-Response:
-
-```json
-{ "enqueued": true }
-```
-
-Clusters (Phase 5+)
-
-GET /api/repos/:repoId/clusters
 Query params:
-	•	state: default OPEN_ONLY
-	•	limit default 50
-	•	cursor optional
+- `state`: `OPEN|CLOSED|MERGED` (default `OPEN`)
+- `needsReview`: `true|false` (default `true`)
+- `minScore`: similarity floor (default `REVIEW_SCORE_THRESHOLD`)
+- `limit`: default `20`, max `100`
+- `cursor`: opaque pagination token
+- `includeCategories`: comma-separated categories or `ALL_ABOVE_THRESHOLD` (default)
 
 Response:
-
 ```json
 {
-  "clusters": [
-    {
-      "clusterId": "uuid",
-      "size": 4,
-      "updatedAt": "....",
-      "baseSuggested": { "prNumber": 2700, "headSha": "...." },
-      "canonicalSuggested": { "prNumber": 2700, "headSha": "...." }
-    }
-  ],
+  "sets": [/* DuplicateSet[] */],
   "nextCursor": "opaque"
 }
 ```
 
-GET /api/repos/:repoId/clusters/:clusterId
-Response includes members + containment edges.
+### GitHub webhook ingest
+`POST /webhooks/github`
 
-Response:
+- Verifies `X-Hub-Signature-256`
+- Idempotent by `X-GitHub-Delivery`
+- Enqueues ingest for processable PR actions
 
+Response examples:
 ```json
-{
-  "clusterId": "uuid",
-  "members": [
-    { "prNumber": 2700, "headSha": "....", "role": "BASE_SUGGESTED" },
-    { "prNumber": 3101, "headSha": "....", "role": "MEMBER" }
-  ],
-  "containmentEdges": [
-    {
-      "fromPrNumber": 2700,
-      "toPrNumber": 3101,
-      "basis": "PROD_SHINGLES",
-      "containment": 0.94
-    }
-  ]
-}
+{ "enqueued": true }
+```
+```json
+{ "duplicate": true }
+```
+```json
+{ "skipped": true }
 ```
 
-Maintainer feedback
+---
 
-POST /api/repos/:repoId/prs/:prNumber/feedback
-Record a maintainer decision. This is the primary learning signal.
-
-Body:
-
-```json
-{
-  "headSha": "....",
-  "candidatePrNumber": 2700,
-  "candidateHeadSha": "....",
-  "decision": "DUPLICATE|SAME_FEATURE|COMPETING|RELATED|NOT_RELATED",
-  "basePrNumber": 2700,
-  "notes": "optional"
-}
-```
-
-Rules:
-	•	headSha required; reject if not current and force not provided (prevents stale feedback)
-	•	candidatePrNumber optional for decisions like OUT_OF_SCOPE or general notes
-
-Response:
-
-```json
-{ "saved": true, "feedbackId": "uuid" }
-```
-
-GET /api/repos/:repoId/prs/:prNumber/feedback
-Query params:
-	•	headSha optional; default current
-
-Response:
-
-```json
-{
-  "prNumber": 3101,
-  "headSha": "....",
-  "feedback": [
-    {
-      "decision": "DUPLICATE",
-      "candidatePrNumber": 2700,
-      "basePrNumber": 2700,
-      "actorLogin": "maintainer",
-      "createdAt": "....",
-      "notes": "..."
-    }
-  ]
-}
-```
+## Future endpoints (not yet implemented)
+- cluster endpoints (`/clusters/...`)
+- feedback write/read endpoints
+- explicit rescore endpoint

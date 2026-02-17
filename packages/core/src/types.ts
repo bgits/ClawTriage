@@ -135,6 +135,7 @@ export interface RuntimeConfig {
   githubAppId: number;
   githubPrivateKeyPem: string;
   dashboardToken?: string;
+  dashboardAuthMode: "auto" | "required" | "disabled";
   workerConcurrency: number;
   checkRunName: string;
   signatureVersion: number;

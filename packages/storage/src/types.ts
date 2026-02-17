@@ -160,14 +160,18 @@ export interface TriageQueueItem {
   prNumber: number;
   prId: number;
   headSha: string;
+  prUrl: string;
   title: string;
   authorLogin: string | null;
   state: PullRequestState;
   updatedAt: Date;
+  lastAnalyzedAt: Date | null;
   analysisStatus: "PENDING" | "RUNNING" | "DONE" | "DEGRADED" | "FAILED";
+  analysisRunId: string | null;
   topSuggestion: {
     category: TriageCategory;
     candidatePrNumber: number;
+    candidatePrUrl: string;
     score: number;
   } | null;
   needsReview: boolean;
@@ -176,4 +180,122 @@ export interface TriageQueueItem {
 export interface TriageQueueResult {
   items: TriageQueueItem[];
   nextCursor: string | null;
+}
+
+export interface RepoListItem {
+  repoId: number;
+  owner: string;
+  name: string;
+  defaultBranch: string;
+  isActive: boolean;
+  installationId: number;
+}
+
+export interface PullRequestDetailRow {
+  repoId: number;
+  prId: number;
+  prNumber: number;
+  state: PullRequestState;
+  isDraft: boolean;
+  title: string;
+  body: string | null;
+  authorLogin: string | null;
+  url: string;
+  baseRef: string;
+  baseSha: string;
+  headRef: string;
+  headSha: string;
+  createdAt: Date;
+  updatedAt: Date;
+  closedAt: Date | null;
+  mergedAt: Date | null;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  analysisStatus: "PENDING" | "RUNNING" | "DONE" | "DEGRADED" | "FAILED";
+  analysisError: string | null;
+  lastAnalyzedHeadSha: string | null;
+  lastAnalyzedAt: Date | null;
+  analysisRunId: string | null;
+  signatureVersion: number | null;
+  algorithmVersion: number | null;
+  configVersion: number | null;
+  degradedReasons: unknown;
+  analysisFinishedAt: Date | null;
+}
+
+export interface PullRequestChannelCounts {
+  productionFiles: number;
+  testFiles: number;
+  docFiles: number;
+  metaFiles: number;
+}
+
+export interface CandidateListItem {
+  analysisRunId: string;
+  prNumber: number;
+  headSha: string;
+  candidatePrNumber: number;
+  candidatePrId: number;
+  candidateHeadSha: string;
+  candidateUrl: string;
+  rank: number;
+  category: TriageCategory;
+  finalScore: number;
+  scores: {
+    prodDiffExact: number;
+    prodMinhash: number;
+    prodFiles: number;
+    prodExports: number;
+    prodSymbols: number;
+    prodImports: number;
+    testsIntent: number;
+    docsStruct: number;
+  };
+  evidence: {
+    overlappingProductionPaths: string[];
+    overlappingExports: string[];
+    overlappingSymbols: string[];
+    overlappingImports: string[];
+    testsIntentOverlap: {
+      suiteNames: string[];
+      testNames: string[];
+      matchers: string[];
+    };
+    docsOverlap: {
+      headings: string[];
+      codeFences: string[];
+    };
+    similarityValues: {
+      prodDiffExact: number;
+      prodMinhash: number;
+      prodFiles: number;
+      prodExports: number;
+      prodSymbols: number;
+      prodImports: number;
+      testsIntent: number;
+      docsStruct: number;
+    };
+  };
+}
+
+export interface DuplicateSetNode {
+  prId: number;
+  prNumber: number;
+  headSha: string;
+  title: string;
+  url: string;
+  state: PullRequestState;
+  lastAnalyzedAt: Date;
+  analysisRunId: string;
+}
+
+export interface DuplicateSetEdge {
+  prIdA: number;
+  headShaA: string;
+  prIdB: number;
+  headShaB: string;
+  category: TriageCategory;
+  finalScore: number;
+  evidence: unknown;
 }

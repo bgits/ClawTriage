@@ -25,6 +25,14 @@ Large repos can accumulate thousands of open PRs/issues. Agentic coding increase
 - Persist results and expose a maintainer-facing dashboard queue
 - Optionally create a GitHub Check Run with a triage summary (preferred to noisy comments)
 
+## Web dashboard
+- Read-only maintainer UI lives in `apps/dashboard`
+- Highlights:
+  - most recent analyzed PR runs
+  - derived potential duplicate sets (from latest candidate edges)
+  - strongest evidence edges and direct PR links for quick human review
+- Run locally with `pnpm dev` (API + worker + dashboard)
+
 ## Non-goals (initially)
 - Auto-closing PRs/issues
 - Auto-merging
@@ -33,10 +41,21 @@ Large repos can accumulate thousands of open PRs/issues. Agentic coding increase
 ## Quickstart (dev)
 See docs/CODEX_GUIDE.md. Local dev uses docker-compose for Postgres + Redis.
 
+Typical local flow:
+1. `pnpm install`
+2. `docker compose up -d`
+3. `pnpm db:migrate`
+4. `pnpm dev`
+
+Dashboard auth behavior is controlled by:
+- `DASHBOARD_AUTH_MODE=auto|required|disabled`
+- `DASHBOARD_TOKEN=<token>`
+
 ## Repo structure (recommended)
 - apps/
   - api/          webhook receiver + dashboard API
   - worker/       analysis pipeline + git mirror manager
+  - dashboard/    web UI for recent runs and duplicate sets
 - packages/
   - core/         signatures, scoring, classification
   - github/       GitHub API client + webhook types

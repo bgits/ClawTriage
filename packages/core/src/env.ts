@@ -28,6 +28,16 @@ function parseNumber(name: string, fallback?: number): number {
   return parsed;
 }
 
+function parseDashboardAuthMode(): "auto" | "required" | "disabled" {
+  const raw = (process.env.DASHBOARD_AUTH_MODE ?? "auto").toLowerCase();
+  if (raw === "auto" || raw === "required" || raw === "disabled") {
+    return raw;
+  }
+  throw new Error(
+    `Invalid DASHBOARD_AUTH_MODE: ${raw}. Expected one of auto|required|disabled`,
+  );
+}
+
 export function loadRuntimeConfig(): RuntimeConfig {
   const githubAppIdValue = requireEnv("GITHUB_APP_ID");
   const githubAppId = Number(githubAppIdValue);
@@ -44,6 +54,7 @@ export function loadRuntimeConfig(): RuntimeConfig {
     githubAppId,
     githubPrivateKeyPem: requireEnv("GITHUB_PRIVATE_KEY_PEM").replace(/\\n/g, "\n"),
     dashboardToken: process.env.DASHBOARD_TOKEN,
+    dashboardAuthMode: parseDashboardAuthMode(),
     workerConcurrency: parseNumber("WORKER_CONCURRENCY", 4),
     checkRunName: process.env.CHECK_RUN_NAME ?? "ClawTriage Duplicate Triage",
     signatureVersion: parseNumber("SIGNATURE_VERSION", SIGNATURE_VERSION),
