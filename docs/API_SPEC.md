@@ -308,6 +308,7 @@ Response:
 - Verifies `X-Hub-Signature-256`
 - Idempotent by `X-GitHub-Delivery`
 - Enqueues ingest for processable PR actions
+- Available only when `GITHUB_MODE=app|hybrid` and GitHub App credentials are configured.
 
 Response examples:
 ```json

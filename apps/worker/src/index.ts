@@ -40,10 +40,13 @@ const rules = loadClassificationRules();
 const thresholds = loadThresholds();
 
 const storage = new Storage();
-const github = new GithubClient({
-  appId: runtime.githubAppId,
-  privateKeyPem: runtime.githubPrivateKeyPem,
-});
+const github =
+  runtime.githubAppId && runtime.githubPrivateKeyPem
+    ? new GithubClient({
+        appId: runtime.githubAppId,
+        privateKeyPem: runtime.githubPrivateKeyPem,
+      })
+    : null;
 const publicGithub = new PublicGithubClient({
   token: process.env.GITHUB_TOKEN,
 });
@@ -214,6 +217,12 @@ async function fetchPullRequestForIngest(payload: IngestPrJobPayload) {
       repo: payload.repo,
       prNumber: payload.prNumber,
     });
+  }
+
+  if (!github) {
+    throw new Error(
+      "GitHub App ingest requested but app credentials are not configured. Set GITHUB_MODE=app|hybrid and provide GITHUB_APP_ID/GITHUB_PRIVATE_KEY_PEM.",
+    );
   }
 
   return github.fetchPullRequestData({
@@ -803,6 +812,22 @@ async function processIngestPr(payload: IngestPrJobPayload): Promise<void> {
     thresholds.actions.publish_check_run &&
     payload.installationId !== INTERNAL_PUBLIC_INSTALLATION_ID
   ) {
+    if (!github) {
+      degradedReasons.push("check_run_publish_skipped_missing_github_app_config");
+      await storage.finishAnalysisRun(
+        analysisRunId,
+        "DEGRADED",
+        undefined,
+        degradedReasons,
+      );
+      await storage.updatePullRequestAnalysisStatus(prData.id, {
+        analysisStatus: "DEGRADED",
+        analysisError: null,
+        lastAnalyzedHeadSha: prData.headSha,
+      });
+      return;
+    }
+
     try {
       const prNumbers = await storage.getPrNumberMap(
         payload.repoId,

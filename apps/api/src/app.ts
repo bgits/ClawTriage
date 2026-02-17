@@ -779,6 +779,17 @@ app.post("/webhooks/github", express.raw({ type: "*/*" }), async (req, res) => {
     return;
   }
 
+  if (!runtime.webhookSecret || !runtime.githubAppId || !runtime.githubPrivateKeyPem) {
+    res.status(503).json({
+      error: {
+        code: "CONFIG_ERROR",
+        message:
+          "GitHub App webhook ingest is disabled. Configure GITHUB_MODE=app|hybrid with GITHUB_APP_ID, GITHUB_PRIVATE_KEY_PEM, and GITHUB_WEBHOOK_SECRET to enable it.",
+      },
+    });
+    return;
+  }
+
   const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(String(req.body ?? ""), "utf8");
 
   const verified = verifyWebhookSignature({

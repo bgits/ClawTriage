@@ -131,9 +131,10 @@ export interface RuntimeConfig {
   port: number;
   databaseUrl: string;
   redisUrl: string;
-  webhookSecret: string;
-  githubAppId: number;
-  githubPrivateKeyPem: string;
+  githubMode: "public" | "app" | "hybrid";
+  webhookSecret?: string;
+  githubAppId?: number;
+  githubPrivateKeyPem?: string;
   dashboardToken?: string;
   dashboardAuthMode: "auto" | "required" | "disabled";
   dashboardStaticDir?: string;

@@ -38,6 +38,44 @@ function parseDashboardAuthMode(): "auto" | "required" | "disabled" {
   );
 }
 
+function parseGithubMode(): "public" | "app" | "hybrid" {
+  const raw = (process.env.GITHUB_MODE ?? "public").toLowerCase();
+  if (raw === "public" || raw === "app" || raw === "hybrid") {
+    return raw;
+  }
+  throw new Error(`Invalid GITHUB_MODE: ${raw}. Expected one of public|app|hybrid`);
+}
+
+function parseOptionalGithubAppId(): number | undefined {
+  const raw = process.env.GITHUB_APP_ID?.trim();
+  if (!raw) {
+    return undefined;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Invalid GITHUB_APP_ID: ${raw}`);
+  }
+
+  return parsed;
+}
+
+function parseOptionalGithubPrivateKeyPem(): string | undefined {
+  const raw = process.env.GITHUB_PRIVATE_KEY_PEM?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  return raw.replace(/\\n/g, "\n");
+}
+
+function parseOptionalWebhookSecret(): string | undefined {
+  const raw = process.env.GITHUB_WEBHOOK_SECRET?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  return raw;
+}
+
 function parsePublicScanAllowedRepos(): string[] {
   const raw = process.env.PUBLIC_SCAN_ALLOWED_REPOS ?? "";
   if (raw.trim() === "") {
@@ -61,20 +99,27 @@ function parsePublicScanAllowedRepos(): string[] {
 }
 
 export function loadRuntimeConfig(): RuntimeConfig {
-  const githubAppIdValue = requireEnv("GITHUB_APP_ID");
-  const githubAppId = Number(githubAppIdValue);
+  const githubMode = parseGithubMode();
+  const githubAppId = parseOptionalGithubAppId();
+  const githubPrivateKeyPem = parseOptionalGithubPrivateKeyPem();
+  const webhookSecret = parseOptionalWebhookSecret();
 
-  if (!Number.isInteger(githubAppId) || githubAppId <= 0) {
-    throw new Error(`Invalid GITHUB_APP_ID: ${githubAppIdValue}`);
+  if (githubMode !== "public") {
+    if (!githubAppId || !githubPrivateKeyPem || !webhookSecret) {
+      throw new Error(
+        "GITHUB_MODE is app/hybrid, but one or more required vars are missing: GITHUB_APP_ID, GITHUB_PRIVATE_KEY_PEM, GITHUB_WEBHOOK_SECRET",
+      );
+    }
   }
 
   return {
     port: parseNumber("PORT", 3000),
     databaseUrl: requireEnv("DATABASE_URL"),
     redisUrl: requireEnv("REDIS_URL"),
-    webhookSecret: requireEnv("GITHUB_WEBHOOK_SECRET"),
+    githubMode,
+    webhookSecret,
     githubAppId,
-    githubPrivateKeyPem: requireEnv("GITHUB_PRIVATE_KEY_PEM").replace(/\\n/g, "\n"),
+    githubPrivateKeyPem,
     dashboardToken: process.env.DASHBOARD_TOKEN,
     dashboardAuthMode: parseDashboardAuthMode(),
     dashboardStaticDir: process.env.DASHBOARD_STATIC_DIR?.trim() || undefined,

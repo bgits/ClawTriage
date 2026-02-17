@@ -88,11 +88,10 @@ Run it twice and keep both values:
 Set runtime secrets:
 ```bash
 fly secrets set -a <your-app-name> \
+  GITHUB_MODE="public" \
+  GITHUB_TOKEN="<optional_github_token_for_higher_rate_limits>" \
   OPS_TRIGGER_TOKEN="<your_ops_trigger_token>" \
-  PUBLIC_SCAN_ALLOWED_REPOS="<owner>/<repo>" \
-  GITHUB_APP_ID="<your_github_app_id>" \
-  GITHUB_WEBHOOK_SECRET="<your_webhook_secret>" \
-  GITHUB_PRIVATE_KEY_PEM="$(cat path/to/github-app-private-key.pem)"
+  PUBLIC_SCAN_ALLOWED_REPOS="<owner>/<repo>"
 ```
 
 Dashboard auth options:
@@ -107,6 +106,15 @@ fly secrets set -a <your-app-name> DASHBOARD_AUTH_MODE=required DASHBOARD_TOKEN=
 
 You do not need to set `DATABASE_URL` or `REDIS_URL` for this all-in-one mode.
 The startup script sets local defaults to `127.0.0.1` and initializes services automatically.
+
+Optional GitHub App mode (only if you want webhook/installation ingest):
+```bash
+fly secrets set -a <your-app-name> \
+  GITHUB_MODE="app" \
+  GITHUB_APP_ID="<your_github_app_id>" \
+  GITHUB_WEBHOOK_SECRET="<your_webhook_secret>" \
+  GITHUB_PRIVATE_KEY_PEM="$(cat path/to/github-app-private-key.pem)"
+```
 
 ## Step 4: Deploy the app
 

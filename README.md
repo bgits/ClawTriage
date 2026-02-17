@@ -52,6 +52,7 @@ Dashboard auth behavior is controlled by:
 - `DASHBOARD_TOKEN=<token>`
 - `OPS_TRIGGER_TOKEN=<token>` for `POST /api/ops/public-scan`
 - `PUBLIC_SCAN_ALLOWED_REPOS=<owner/repo,...>` allowlist for ops-triggered scans
+- `GITHUB_MODE=public|app|hybrid` (default `public`)
 
 Dashboard repository behavior is controlled by:
 - `VITE_DASHBOARD_REPO_ID=<repo_id>` (fixed repository id for single-repo dashboard view)
@@ -62,6 +63,8 @@ Dashboard repository behavior is controlled by:
 - One-command deploy: `pnpm deploy:fly`
 - Runtime entrypoint: `pnpm start:fly`
 - Deploy manually with Fly CLI (`flyctl`) instead of CI deploy workflow.
+- Default deploy path uses `GITHUB_MODE=public` and `GITHUB_TOKEN` (no GitHub App required).
+- GitHub App credentials are only required if you enable `GITHUB_MODE=app|hybrid`.
 - Manual authorized trigger command:
   - `FLY_APP_URL=https://<app>.fly.dev OPS_TRIGGER_TOKEN=<token> pnpm trigger:scan --owner <owner> --repo <repo>`
 - Fly-native scheduled trigger can call the same endpoint at a chosen interval.

@@ -8,9 +8,10 @@ function makeRuntime(overrides: Partial<RuntimeConfig> = {}): RuntimeConfig {
     port: 3000,
     databaseUrl: "postgres://postgres:postgres@localhost:5432/clawtriage",
     redisUrl: "redis://localhost:6379",
-    webhookSecret: "webhook-secret",
-    githubAppId: 123,
-    githubPrivateKeyPem: "private-key",
+    githubMode: "public",
+    webhookSecret: undefined,
+    githubAppId: undefined,
+    githubPrivateKeyPem: undefined,
     dashboardToken: "dashboard-token",
     dashboardAuthMode: "disabled",
     dashboardStaticDir: undefined,
@@ -71,6 +72,24 @@ function makeApp(params?: {
 }
 
 describe("dashboard API routes", () => {
+  it("returns config error for webhook ingest when github app mode is not configured", async () => {
+    const { app } = makeApp({
+      runtimeOverrides: {
+        githubMode: "public",
+        webhookSecret: undefined,
+        githubAppId: undefined,
+        githubPrivateKeyPem: undefined,
+      },
+    });
+
+    await request(app)
+      .post("/webhooks/github")
+      .set("x-github-delivery", "delivery-1")
+      .set("x-github-event", "pull_request")
+      .send("{}")
+      .expect(503);
+  });
+
   it("requires ops token for public scan trigger", async () => {
     const { app } = makeApp();
 

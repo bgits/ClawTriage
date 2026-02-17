@@ -159,12 +159,16 @@ Why this pattern:
 ## Phase 6: Secrets and configuration
 
 Fly secrets:
-- `GITHUB_APP_ID`
-- `GITHUB_PRIVATE_KEY_PEM`
-- `GITHUB_WEBHOOK_SECRET`
+- `GITHUB_MODE=public` (default mode for public scan workflow)
+- `GITHUB_TOKEN` (optional but recommended for rate limits)
 - `DASHBOARD_TOKEN`
 - `OPS_TRIGGER_TOKEN`
 - `PUBLIC_SCAN_ALLOWED_REPOS`
+
+Only required when enabling GitHub App ingest (`GITHUB_MODE=app|hybrid`):
+- `GITHUB_APP_ID`
+- `GITHUB_PRIVATE_KEY_PEM`
+- `GITHUB_WEBHOOK_SECRET`
 
 Fly volume:
 - `data` volume mounted to `/data` (required for persistence)
