@@ -312,7 +312,13 @@ select {
   font-size: 1.06rem;
 }
 
-.panel-header span {
+.panel-title-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.panel-header > span {
   color: var(--text-muted);
   font-size: 0.82rem;
 }
@@ -432,6 +438,12 @@ select {
   font-size: 0.92rem;
   margin: 0 0 0.48rem;
   letter-spacing: 0.02em;
+}
+
+.detail-note {
+  margin: 0 0 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
 }
 
 .member-list,

@@ -40,6 +40,10 @@ const CONFIGURED_REPO_LABEL =
     : null;
 const MIN_SCORE_HELP_TEXT =
   "Min score filters sets by their strongest duplicate score. Raise it to show only stronger matches; lower it to include weaker or more uncertain matches.";
+const DUPLICATE_SET_SCORE_HELP_TEXT =
+  "Scores are 0-1. This is the highest pair score in the set. 1.000 means a pair hit the model ceiling (very strong overlap), not guaranteed exact duplicate.";
+const EDGE_INTERPRETATION_HELP_TEXT =
+  "Interpret score with category and evidence: SAME_CHANGE is closest to exact; SAME_FEATURE can still be different implementations.";
 
 function shortSha(sha: string): string {
   return sha.slice(0, 7);
@@ -363,7 +367,21 @@ export default function App() {
       <main className="main-grid">
         <section className="panel sets-panel">
           <div className="panel-header">
-            <h2>Potential Duplicate Sets</h2>
+            <div className="panel-title-with-help">
+              <h2>Potential Duplicate Sets</h2>
+              <span className="tooltip-wrapper">
+                <button
+                  type="button"
+                  className="tooltip-trigger"
+                  aria-label="How to interpret duplicate set scores"
+                >
+                  i
+                </button>
+                <span className="tooltip-bubble" role="tooltip">
+                  {DUPLICATE_SET_SCORE_HELP_TEXT}
+                </span>
+              </span>
+            </div>
             <span>{duplicateSets.length} sets</span>
           </div>
 
@@ -386,7 +404,7 @@ export default function App() {
                   <span>{set.size} PRs</span>
                 </div>
                 <div className="set-card-meta">
-                  <span>Max score {set.maxScore.toFixed(3)}</span>
+                  <span>Best pair score {set.maxScore.toFixed(3)}</span>
                   <span>{formatTimestamp(set.lastAnalyzedAt)}</span>
                 </div>
                 <div className="badge-row">
@@ -435,6 +453,7 @@ export default function App() {
 
               <div className="detail-block">
                 <h3>Strongest Edges</h3>
+                <p className="detail-note">{EDGE_INTERPRETATION_HELP_TEXT}</p>
                 {selectedSet.strongestEdges.length === 0 ? <p className="empty">No edge evidence available.</p> : null}
                 <ul className="edge-list">
                   {selectedSet.strongestEdges.map((edge, index) => (
