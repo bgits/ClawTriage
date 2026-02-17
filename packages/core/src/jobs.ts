@@ -11,5 +11,5 @@ export interface IngestPrJobPayload {
 }
 
 export function buildIngestPrJobId(payload: IngestPrJobPayload): string {
-  return `ingest-pr:${payload.repoId}:${payload.prId}:${payload.headSha}`;
+  return `ingest-pr-${payload.repoId}-${payload.prId}-${payload.headSha}`;
 }
