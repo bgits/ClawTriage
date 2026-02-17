@@ -261,20 +261,45 @@ export default function App() {
         </div>
       </header>
 
-      <section className="category-filter">
-        {CATEGORY_OPTIONS.map((category) => {
-          const active = categories.includes(category);
-          return (
-            <button
-              key={category}
-              className={active ? "category-toggle active" : "category-toggle"}
-              onClick={() => toggleCategory(category)}
-              type="button"
-            >
-              {category}
-            </button>
-          );
-        })}
+      <section className="category-filter" aria-label="Category filters">
+        <div className="category-filter-head">
+          <strong>Filter categories</strong>
+          <span>
+            {categories.length}/{CATEGORY_OPTIONS.length} selected
+          </span>
+        </div>
+
+        <div className="category-toggle-list" role="group" aria-label="Duplicate set categories">
+          {CATEGORY_OPTIONS.map((category) => {
+            const active = categories.includes(category);
+            const isLastActive = active && categories.length === 1;
+            return (
+              <button
+                key={category}
+                aria-pressed={active}
+                className={active ? "category-toggle active" : "category-toggle"}
+                disabled={isLastActive}
+                onClick={() => toggleCategory(category)}
+                title={
+                  isLastActive
+                    ? "At least one category must remain selected."
+                    : active
+                      ? "Selected. Click to remove this filter."
+                      : "Not selected. Click to include this filter."
+                }
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  className={active ? "category-toggle-indicator active" : "category-toggle-indicator"}
+                >
+                  {active ? "✓" : ""}
+                </span>
+                <span>{category}</span>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       {errorMessage ? <div className="error-banner">{errorMessage}</div> : null}

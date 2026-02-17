@@ -181,6 +181,26 @@ describe("Dashboard App", () => {
     });
   });
 
+  it("uses explicit pressed state for category filters", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "SAME_CHANGE" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "SAME_CHANGE" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "SAME_CHANGE" })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    });
+  });
+
   it("renders external links for member and edge PRs", async () => {
     render(<App />);
 
