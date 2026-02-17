@@ -1,0 +1,55 @@
+version: 1
+
+# Global behavior toggles
+actions:
+  publish_check_run: true
+  apply_labels: true
+  post_comment_on_same_change: false  # keep quiet by default
+
+# Candidate generation
+candidates:
+  max_candidates_from_lsh: 200
+  max_candidates_final: 50
+  recent_pr_window_days: 180
+
+# Rewrite mode triggers
+rewrite_mode:
+  lines_changed_threshold: 2000
+  files_changed_threshold: 50
+  rename_ratio_threshold: 0.25
+
+# Similarity thresholds
+similarity:
+  same_change:
+    prod_minhash_threshold: 0.95
+    prod_files_overlap_threshold: 0.80
+
+  same_feature:
+    prod_score_threshold: 0.75
+    supporting_signal_min: 0.50
+
+  competing_impl:
+    tests_intent_threshold: 0.85
+    prod_score_max: 0.60
+
+# Channel caps (prevent tests/docs dominating)
+caps:
+  test_score_cap: 0.20
+  doc_score_cap: 0.10
+
+weights:
+  production:
+    minhash: 0.35
+    exports: 0.25
+    symbols: 0.20
+    files: 0.10
+    imports: 0.10
+  tests:
+    intent: 1.0
+  docs:
+    structure: 1.0
+
+llm:
+  enabled: false
+  top_k: 3
+  min_ambiguity_score: 0.10

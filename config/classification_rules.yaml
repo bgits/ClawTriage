@@ -1,0 +1,82 @@
+version: 1
+
+channels:
+  tests:
+    path_globs:
+      - "**/__tests__/**"
+      - "**/tests/**"
+      - "**/*.test.ts"
+      - "**/*.test.tsx"
+      - "**/*.spec.ts"
+      - "**/*.spec.tsx"
+      - "**/*.snap"
+      - "**/fixtures/**"
+      - "**/testdata/**"
+    extensions:
+      - ".ts"
+      - ".tsx"
+      - ".js"
+      - ".jsx"
+      - ".snap"
+
+  docs:
+    path_globs:
+      - "docs/**"
+      - "**/*.md"
+      - "**/*.mdx"
+      - "**/*.rst"
+      - "**/*.adoc"
+    extensions:
+      - ".md"
+      - ".mdx"
+      - ".rst"
+      - ".adoc"
+
+  meta:
+    path_globs:
+      - ".cursor/**"
+      - ".aider/**"
+      - ".windsurf/**"
+      - ".vscode/**"
+      - "**/*trace*.*"
+      - "**/*log*.*"
+      - "**/*prompt*.*"
+      - "**/*plan*.*"
+      - "**/*notes*.*"
+      - "**/agent/**"
+      - "**/prompts/**"
+    extensions:
+      - ".txt"
+      - ".json"
+      - ".yaml"
+      - ".yml"
+      - ".log"
+
+  production:
+    # default channel when no other channel matches
+    path_globs: []
+    extensions:
+      - ".ts"
+      - ".tsx"
+      - ".js"
+      - ".jsx"
+      - ".json"
+      - ".yaml"
+      - ".yml"
+
+ast_refinements:
+  # For .ts/.tsx files, reclassify as tests if evidence of test framework usage exists.
+  test_framework_imports:
+    - "vitest"
+    - "jest"
+    - "@jest/globals"
+    - "mocha"
+    - "@playwright/test"
+  test_function_names:
+    - "describe"
+    - "it"
+    - "test"
+    - "beforeEach"
+    - "afterEach"
+    - "beforeAll"
+    - "afterAll"
