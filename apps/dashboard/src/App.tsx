@@ -44,6 +44,36 @@ const DUPLICATE_SET_SCORE_HELP_TEXT =
   "Scores are 0-1. This is the highest pair score in the set. 1.000 means a pair hit the model ceiling (very strong overlap), not guaranteed exact duplicate.";
 const EDGE_INTERPRETATION_HELP_TEXT =
   "Interpret score with category and evidence: SAME_CHANGE is closest to exact; SAME_FEATURE can still be different implementations.";
+const ABOUT_ONE_LINER =
+  "ClawTriage helps maintainers quickly spot pull requests that are likely solving the same problem.";
+const ABOUT_PIPELINE_STEPS = [
+  "A PR arrives and its changed files are split into four buckets: product code, tests, docs, and metadata.",
+  "The system compares product-code changes first because that is the strongest duplicate signal.",
+  "Tests and docs are used as supporting clues, but their influence is capped so they cannot dominate.",
+  "A shortlist of likely matches is built, then each pair is scored.",
+  "Top matches are saved with clear evidence so humans can confirm or reject quickly.",
+  "Results are shown quietly in Check Runs and this dashboard queue.",
+];
+const ABOUT_CANDIDATE_SOURCES = [
+  "Exact product-code patch matches",
+  "Very similar product-code edits",
+  "Overlapping files or folders",
+  "Overlapping functions/exports/imports",
+  "Similar test intent (useful for different implementations of the same idea)",
+];
+const ABOUT_CATEGORY_RULES = [
+  "SAME_CHANGE: most likely the same code change.",
+  "SAME_FEATURE: likely the same goal, but not necessarily the same exact code.",
+  "COMPETING_IMPLEMENTATION: likely solving the same thing in a different way.",
+  "RELATED / NOT_RELATED: weak overlap or clearly different work.",
+];
+const ABOUT_EVIDENCE_FIELDS = [
+  "Which product files overlap",
+  "Which symbols/exports/imports overlap",
+  "Which test names or matcher patterns overlap (when relevant)",
+  "Which docs headings/code blocks overlap (when relevant)",
+  "The scores behind the suggestion",
+];
 
 function shortSha(sha: string): string {
   return sha.slice(0, 7);
@@ -130,6 +160,7 @@ export default function App() {
   const [duplicateSets, setDuplicateSets] = useState<DuplicateSet[]>([]);
   const [triageRuns, setTriageRuns] = useState<TriageQueueItem[]>([]);
   const [isRunsPanelExpanded, setIsRunsPanelExpanded] = useState(false);
+  const [isAboutExpanded, setIsAboutExpanded] = useState(false);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
 
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -323,8 +354,142 @@ export default function App() {
             />
             Needs review only
           </label>
+
+          <button
+            type="button"
+            className="about-toggle"
+            data-testid="about-toggle"
+            aria-expanded={isAboutExpanded}
+            aria-controls={isAboutExpanded ? "about-panel-content" : undefined}
+            onClick={() => setIsAboutExpanded((current) => !current)}
+          >
+            {isAboutExpanded ? "Hide details" : "How this works"}
+          </button>
         </div>
       </header>
+
+      <section className={isAboutExpanded ? "panel about-panel expanded" : "panel about-panel"}>
+        <div className="about-panel-header">
+          <div className="about-panel-title">
+            <h2>How We Spot Duplicate PRs</h2>
+            <p>{ABOUT_ONE_LINER}</p>
+          </div>
+          {isAboutExpanded ? (
+            <button
+              type="button"
+              className="about-close"
+              onClick={() => setIsAboutExpanded(false)}
+              aria-label="Close about"
+            >
+              Close
+            </button>
+          ) : null}
+        </div>
+
+        {!isAboutExpanded ? (
+          <div className="about-collapsed-note">
+            <button
+              type="button"
+              className="about-inline-toggle"
+              onClick={() => setIsAboutExpanded(true)}
+            >
+              More
+            </button>
+          </div>
+        ) : null}
+
+        {isAboutExpanded ? (
+          <div id="about-panel-content" className="about-panel-content">
+            <p className="about-source-note">
+              This summary is based on the project README, architecture docs, and algorithms docs.
+            </p>
+
+            <div className="about-card-grid">
+              <article className="about-card">
+                <h3>Step-By-Step</h3>
+                <ol className="about-list">
+                  {ABOUT_PIPELINE_STEPS.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </article>
+
+              <article className="about-card">
+                <h3>Why Product Code Comes First</h3>
+                <p>
+                  The system gives the most weight to product-code changes. Tests and docs help with context, but they
+                  are intentionally capped so they do not drown out real code differences.
+                </p>
+                <ul className="about-list">
+                  <li>
+                    This avoids false matches from huge test files or doc-heavy PRs.
+                  </li>
+                  <li>
+                    It also improves precision when two PRs have similar intent but different implementation details.
+                  </li>
+                </ul>
+              </article>
+
+              <article className="about-card">
+                <h3>What It Looks At</h3>
+                <p>
+                  Before doing deeper scoring, ClawTriage builds a shortlist of PRs that look similar using clues like
+                  these:
+                </p>
+                <ul className="about-list">
+                  {ABOUT_CANDIDATE_SOURCES.map((source) => (
+                    <li key={source}>{source}</li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="about-card">
+                <h3>How Results Are Labeled</h3>
+                <p>
+                  Each possible match gets a score and a label so maintainers can quickly decide what to do next.
+                </p>
+                <ul className="about-list">
+                  {ABOUT_CATEGORY_RULES.map((rule) => (
+                    <li key={rule}>{rule}</li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="about-card">
+                <h3>Why You Can Trust the Suggestion</h3>
+                <p>
+                  Suggestions are only shown when evidence is available for review. No evidence means no valid
+                  suggestion.
+                </p>
+                <ul className="about-list">
+                  {ABOUT_EVIDENCE_FIELDS.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="about-card">
+                <h3>Safety And Noise Controls</h3>
+                <ul className="about-list">
+                  <li>
+                    It does not run untrusted code from incoming PRs.
+                  </li>
+                  <li>
+                    It is quiet by default: Check Runs and dashboard first, comments only for very high-confidence
+                    cases when enabled.
+                  </li>
+                  <li>
+                    If AI assistance is enabled, it sees only compact evidence summaries, not raw full diffs.
+                  </li>
+                  <li>
+                    Final decisions stay with humans; this tool is meant to speed up review, not replace it.
+                  </li>
+                </ul>
+              </article>
+            </div>
+          </div>
+        ) : null}
+      </section>
 
       <section className="category-filter" aria-label="Category filters">
         <div className="category-filter-head">

@@ -177,6 +177,29 @@ describe("Dashboard App", () => {
     );
   });
 
+  it("keeps about details collapsed by default and supports open/close", async () => {
+    render(<App />);
+
+    const aboutToggle = screen.getByTestId("about-toggle");
+    expect(aboutToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Step-By-Step")).not.toBeInTheDocument();
+
+    fireEvent.click(aboutToggle);
+
+    await waitFor(() => {
+      expect(aboutToggle).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByText("How We Spot Duplicate PRs")).toBeInTheDocument();
+      expect(screen.getByText("Step-By-Step")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Close about" }));
+
+    await waitFor(() => {
+      expect(aboutToggle).toHaveAttribute("aria-expanded", "false");
+    });
+    expect(screen.queryByText("Step-By-Step")).not.toBeInTheDocument();
+  });
+
   it("shows a fixed repository display instead of a selector", async () => {
     render(<App />);
 
