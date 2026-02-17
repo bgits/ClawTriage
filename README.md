@@ -6,6 +6,12 @@
   <a href="https://clawtriage.fly.dev/"><strong>Latest Deployment: clawtriage.fly.dev</strong></a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/bgits/ClawTriage/actions/workflows/ci.yml">
+    <img src="https://github.com/bgits/ClawTriage/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" />
+  </a>
+</p>
+
 # ClawTriage - Pull Request Deduplication
 
 A GitHub App + worker pipeline that triages PRs and issues at scale:
