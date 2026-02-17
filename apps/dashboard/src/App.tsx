@@ -38,6 +38,8 @@ const CONFIGURED_REPO_LABEL =
   CONFIGURED_REPO_OWNER.length > 0 && CONFIGURED_REPO_NAME.length > 0
     ? `${CONFIGURED_REPO_OWNER}/${CONFIGURED_REPO_NAME}`
     : null;
+const MIN_SCORE_HELP_TEXT =
+  "Min score filters sets by their strongest duplicate score. Raise it to show only stronger matches; lower it to include weaker or more uncertain matches.";
 
 function shortSha(sha: string): string {
   return sha.slice(0, 7);
@@ -277,7 +279,23 @@ export default function App() {
           </label>
 
           <label>
-            Min score: <strong>{minScore.toFixed(2)}</strong>
+            <span className="control-label-with-help">
+              <span>
+                Min score: <strong>{minScore.toFixed(2)}</strong>
+              </span>
+              <span className="tooltip-wrapper">
+                <button
+                  type="button"
+                  className="tooltip-trigger"
+                  aria-label="What min score means"
+                >
+                  ?
+                </button>
+                <span className="tooltip-bubble" role="tooltip">
+                  {MIN_SCORE_HELP_TEXT}
+                </span>
+              </span>
+            </span>
             <input
               type="range"
               min={0}
