@@ -561,6 +561,12 @@ export default function App() {
           ) : null}
 
           <div className="set-list">
+            {isLoadingData ? (
+              <div className="sets-loading-hero" role="status" aria-live="polite">
+                <span className="loading-spinner" aria-hidden="true" />
+                <p>Loading duplicate sets...</p>
+              </div>
+            ) : null}
             {duplicateSets.map((set) => (
               <button
                 data-testid={`set-item-${set.setId}`}
