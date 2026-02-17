@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { Worker } from "bullmq";
+import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import {
+  INTERNAL_PUBLIC_INSTALLATION_ID,
   JOB_NAMES,
   QUEUE_NAMES,
   bufferToMinhash,
   buildCanonicalDiffHash,
+  buildIngestPrJobId,
   buildTokenShingles,
   classifyFiles,
   computeMinhash,
@@ -28,8 +30,9 @@ import {
   tokensFromTestIntent,
   type ChangedFile,
   type IngestPrJobPayload,
+  type PublicPrScanJobPayload,
 } from "@clawtriage/core";
-import { GithubClient } from "@clawtriage/github";
+import { GithubClient, PublicGithubClient } from "@clawtriage/github";
 import { Storage } from "@clawtriage/storage";
 
 const runtime = loadRuntimeConfig();
@@ -40,6 +43,9 @@ const storage = new Storage();
 const github = new GithubClient({
   appId: runtime.githubAppId,
   privateKeyPem: runtime.githubPrivateKeyPem,
+});
+const publicGithub = new PublicGithubClient({
+  token: process.env.GITHUB_TOKEN,
 });
 
 const redis = new Redis(runtime.redisUrl, {
@@ -63,6 +69,9 @@ function toBullMqConnection(redisUrl: string) {
 }
 
 const workerConnection = toBullMqConnection(runtime.redisUrl);
+const ingestQueue = new Queue<IngestPrJobPayload>(QUEUE_NAMES.ingestPr, {
+  connection: workerConnection,
+});
 
 function mapPrState(state: "open" | "closed", mergedAt: string | null): "OPEN" | "CLOSED" | "MERGED" {
   if (state === "open") {
@@ -198,13 +207,89 @@ function toShinglesFromPatchLines(lines: string[]): Set<string> {
   return buildTokenShingles(tokens, 5);
 }
 
-async function processIngestPr(payload: IngestPrJobPayload): Promise<void> {
-  const prData = await github.fetchPullRequestData({
+async function fetchPullRequestForIngest(payload: IngestPrJobPayload) {
+  if (payload.installationId === INTERNAL_PUBLIC_INSTALLATION_ID) {
+    return publicGithub.fetchPullRequestData({
+      owner: payload.owner,
+      repo: payload.repo,
+      prNumber: payload.prNumber,
+    });
+  }
+
+  return github.fetchPullRequestData({
     installationId: payload.installationId,
     owner: payload.owner,
     repo: payload.repo,
     prNumber: payload.prNumber,
   });
+}
+
+async function processPublicPrScan(payload: PublicPrScanJobPayload): Promise<void> {
+  const repoData = await publicGithub.fetchRepositoryData({
+    owner: payload.owner,
+    repo: payload.repo,
+  });
+
+  await storage.upsertInstallation({
+    installationId: INTERNAL_PUBLIC_INSTALLATION_ID,
+    accountLogin: repoData.ownerLogin,
+    accountType: repoData.ownerType,
+  });
+
+  await storage.upsertRepository({
+    repoId: repoData.id,
+    installationId: INTERNAL_PUBLIC_INSTALLATION_ID,
+    owner: repoData.ownerLogin,
+    name: repoData.name,
+    defaultBranch: repoData.defaultBranch,
+    isActive: true,
+  });
+
+  const openPrs = await publicGithub.listOpenPullRequests({
+    owner: repoData.ownerLogin,
+    repo: repoData.name,
+    maxOpenPrs: payload.maxOpenPrs,
+  });
+
+  for (const pr of openPrs) {
+    const ingestPayload: IngestPrJobPayload = {
+      deliveryId: `public-${payload.snapshot}-${pr.id}-${pr.headSha.slice(0, 12)}`,
+      installationId: INTERNAL_PUBLIC_INSTALLATION_ID,
+      repoId: repoData.id,
+      owner: repoData.ownerLogin,
+      repo: repoData.name,
+      prNumber: pr.number,
+      prId: pr.id,
+      headSha: pr.headSha,
+      action: "public_scan",
+    };
+    const ingestJobId = buildIngestPrJobId(ingestPayload);
+
+    const existingJob = await ingestQueue.getJob(ingestJobId);
+    if (existingJob) {
+      const state = await existingJob.getState();
+      if (state === "failed") {
+        await existingJob.remove();
+      } else {
+        continue;
+      }
+    }
+
+    await ingestQueue.add(JOB_NAMES.ingestPr, ingestPayload, {
+      jobId: ingestJobId,
+      removeOnComplete: 500,
+      removeOnFail: 1000,
+    });
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(
+    `Public scan queued ${openPrs.length} PR(s) for ${repoData.ownerLogin}/${repoData.name}`,
+  );
+}
+
+async function processIngestPr(payload: IngestPrJobPayload): Promise<void> {
+  const prData = await fetchPullRequestForIngest(payload);
 
   const classifiedFiles = classifyFiles(
     prData.files.map((file) => ({
@@ -714,7 +799,10 @@ async function processIngestPr(payload: IngestPrJobPayload): Promise<void> {
     lastAnalyzedHeadSha: prData.headSha,
   });
 
-  if (thresholds.actions.publish_check_run) {
+  if (
+    thresholds.actions.publish_check_run &&
+    payload.installationId !== INTERNAL_PUBLIC_INSTALLATION_ID
+  ) {
     try {
       const prNumbers = await storage.getPrNumberMap(
         payload.repoId,
@@ -770,7 +858,7 @@ async function processIngestPr(payload: IngestPrJobPayload): Promise<void> {
   }
 }
 
-const worker = new Worker<IngestPrJobPayload>(
+const ingestWorker = new Worker<IngestPrJobPayload>(
   QUEUE_NAMES.ingestPr,
   async (job) => {
     if (job.name !== JOB_NAMES.ingestPr) {
@@ -785,14 +873,34 @@ const worker = new Worker<IngestPrJobPayload>(
   },
 );
 
-worker.on("completed", (job) => {
+const publicScanWorker = new Worker<PublicPrScanJobPayload>(
+  QUEUE_NAMES.publicPrScan,
+  async (job) => {
+    if (job.name !== JOB_NAMES.publicPrScan) {
+      return;
+    }
+
+    await processPublicPrScan(job.data);
+  },
+  {
+    concurrency: 1,
+    connection: workerConnection,
+  },
+);
+
+ingestWorker.on("completed", (job) => {
   // eslint-disable-next-line no-console
-  console.log(`Completed job ${job.id}`);
+  console.log(`Completed ingest job ${job.id}`);
 });
 
-worker.on("failed", async (job, error) => {
+publicScanWorker.on("completed", (job) => {
   // eslint-disable-next-line no-console
-  console.error(`Failed job ${job?.id}:`, error);
+  console.log(`Completed public scan job ${job.id}`);
+});
+
+ingestWorker.on("failed", async (job, error) => {
+  // eslint-disable-next-line no-console
+  console.error(`Failed ingest job ${job?.id}:`, error);
 
   const payload = job?.data;
   if (payload?.prId) {
@@ -804,8 +912,15 @@ worker.on("failed", async (job, error) => {
   }
 });
 
+publicScanWorker.on("failed", (job, error) => {
+  // eslint-disable-next-line no-console
+  console.error(`Failed public scan job ${job?.id}:`, error);
+});
+
 async function shutdown(): Promise<void> {
-  await worker.close();
+  await ingestWorker.close();
+  await publicScanWorker.close();
+  await ingestQueue.close();
   await redis.quit();
   await storage.close();
 }

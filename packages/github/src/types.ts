@@ -3,6 +3,10 @@ export interface GithubClientConfig {
   privateKeyPem: string;
 }
 
+export interface PublicGithubClientConfig {
+  token?: string;
+}
+
 export interface GithubPullRequestFile {
   sha: string;
   filename: string;
@@ -36,6 +40,20 @@ export interface GithubPullRequestData {
   updatedAt: string;
   closedAt: string | null;
   files: GithubPullRequestFile[];
+}
+
+export interface PublicRepositoryData {
+  id: number;
+  ownerLogin: string;
+  ownerType: string;
+  name: string;
+  defaultBranch: string;
+}
+
+export interface PublicPullRequestSummary {
+  id: number;
+  number: number;
+  headSha: string;
 }
 
 export interface CheckRunSummaryInput {

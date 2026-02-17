@@ -44,6 +44,13 @@ function normalizeStringArray(value: unknown): string[] {
   return value.filter((entry): entry is string => typeof entry === "string");
 }
 
+function toJsonbValue(value: unknown): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  return JSON.stringify(value);
+}
+
 export class Storage {
   public readonly pool: Pool;
 
@@ -417,13 +424,13 @@ export class Storage {
         input.canonicalDiffHash ?? null,
         input.minhash ?? null,
         input.minhashShingleCount ?? 0,
-        input.exportsJson ?? null,
-        input.symbolsJson ?? null,
-        input.importsJson ?? null,
-        input.testIntentJson ?? null,
-        input.docStructureJson ?? null,
-        input.sizeMetricsJson ?? null,
-        input.errorsJson ?? null,
+        toJsonbValue(input.exportsJson),
+        toJsonbValue(input.symbolsJson),
+        toJsonbValue(input.importsJson),
+        toJsonbValue(input.testIntentJson),
+        toJsonbValue(input.docStructureJson),
+        toJsonbValue(input.sizeMetricsJson),
+        toJsonbValue(input.errorsJson),
       ],
     );
   }

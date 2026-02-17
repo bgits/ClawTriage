@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "test": "vitest run --passWithNoTests",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "public:scan": "tsx src/public-scan.ts"
   },
   "dependencies": {
     "@clawtriage/core": "workspace:*",
