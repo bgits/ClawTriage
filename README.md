@@ -10,7 +10,7 @@
 
 # ClawTriage - Pull Request Deduplication
 
-A GitHub App + worker pipeline that triages PRs and issues at scale:
+A worker pipeline that triages PRs and issues at scale:
 - detects duplicate PRs (same change / same feature / competing implementations)
 - detects duplicate issues and links PRs ↔ issues
 - infers "base/original" PR inside a duplicate cluster
