@@ -276,7 +276,7 @@ export default function App() {
       <header className="top-bar">
         <div className="brand-block">
           <h1>ClawTriage Dashboard</h1>
-          <p>Recent run outcomes, potential duplicate sets, and direct PR links for review.</p>
+          <p>potential duplicate sets among pull requests.</p>
         </div>
 
         <div className="controls">
