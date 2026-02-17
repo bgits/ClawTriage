@@ -13,10 +13,10 @@
     "dashboard:test": "pnpm --filter @clawtriage/dashboard test"
   },
   "devDependencies": {
-    "@types/node": "^22.13.10",
-    "concurrently": "^9.1.2",
-    "tsx": "^4.20.3",
-    "typescript": "^5.8.2",
-    "vitest": "^2.1.8"
+    "@types/node": "^22.19.11",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   }
 }
