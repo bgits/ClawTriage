@@ -12,6 +12,24 @@ function resolveConfigPath(explicitPath: string | undefined, relativePath: strin
   if (explicitPath) {
     return explicitPath;
   }
+
+  let currentDir = process.cwd();
+  const visited = new Set<string>();
+
+  while (!visited.has(currentDir)) {
+    visited.add(currentDir);
+    const candidate = path.resolve(currentDir, relativePath);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+
+    const parent = path.dirname(currentDir);
+    if (parent === currentDir) {
+      break;
+    }
+    currentDir = parent;
+  }
+
   return path.resolve(process.cwd(), relativePath);
 }
 
