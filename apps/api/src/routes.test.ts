@@ -2,6 +2,7 @@ import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import type { RuntimeConfig } from "@clawtriage/core";
 import { createApiApp } from "./app.js";
+import { decodeDuplicateSetCursor } from "./duplicate-sets.js";
 
 function makeRuntime(overrides: Partial<RuntimeConfig> = {}): RuntimeConfig {
   return {
@@ -69,6 +70,96 @@ function makeApp(params?: {
   });
 
   return { app, storage, queue };
+}
+
+function makeDuplicateSetSortFixtures() {
+  const makeNode = (
+    prId: number,
+    prNumber: number,
+    headSha: string,
+    analyzedAt: string,
+    analysisRunId: string,
+  ) => ({
+    prId,
+    prNumber,
+    headSha,
+    title: `PR ${prNumber}`,
+    url: `https://github.com/org/repo/pull/${prNumber}`,
+    state: "OPEN" as const,
+    lastAnalyzedAt: new Date(analyzedAt),
+    analysisRunId,
+  });
+
+  return {
+    nodes: [
+      makeNode(1, 101, "a001", "2026-02-17T12:00:00Z", "run-1"),
+      makeNode(2, 102, "a002", "2026-02-17T12:05:00Z", "run-2"),
+      makeNode(3, 103, "b001", "2026-02-17T12:10:00Z", "run-3"),
+      makeNode(4, 104, "b002", "2026-02-17T12:11:00Z", "run-4"),
+      makeNode(5, 105, "b003", "2026-02-17T12:12:00Z", "run-5"),
+      makeNode(6, 106, "c001", "2026-02-17T12:20:00Z", "run-6"),
+      makeNode(7, 107, "c002", "2026-02-17T12:21:00Z", "run-7"),
+      makeNode(8, 108, "c003", "2026-02-17T12:22:00Z", "run-8"),
+      makeNode(9, 109, "d001", "2026-02-17T12:30:00Z", "run-9"),
+      makeNode(10, 110, "d002", "2026-02-17T12:31:00Z", "run-10"),
+    ],
+    edges: [
+      {
+        prIdA: 1,
+        headShaA: "a001",
+        prIdB: 2,
+        headShaB: "a002",
+        category: "SAME_FEATURE" as const,
+        finalScore: 1,
+        evidence: { overlappingProductionPaths: ["src/a.ts"] },
+      },
+      {
+        prIdA: 3,
+        headShaA: "b001",
+        prIdB: 4,
+        headShaB: "b002",
+        category: "SAME_FEATURE" as const,
+        finalScore: 1,
+        evidence: { overlappingProductionPaths: ["src/b.ts"] },
+      },
+      {
+        prIdA: 4,
+        headShaA: "b002",
+        prIdB: 5,
+        headShaB: "b003",
+        category: "SAME_FEATURE" as const,
+        finalScore: 0.97,
+        evidence: { overlappingProductionPaths: ["src/b.ts"] },
+      },
+      {
+        prIdA: 6,
+        headShaA: "c001",
+        prIdB: 7,
+        headShaB: "c002",
+        category: "SAME_FEATURE" as const,
+        finalScore: 1,
+        evidence: { overlappingProductionPaths: ["src/c.ts"] },
+      },
+      {
+        prIdA: 7,
+        headShaA: "c002",
+        prIdB: 8,
+        headShaB: "c003",
+        category: "RELATED" as const,
+        finalScore: 0.92,
+        evidence: { overlappingProductionPaths: ["src/c.ts"] },
+      },
+      {
+        prIdA: 9,
+        headShaA: "d001",
+        prIdB: 10,
+        headShaB: "d002",
+        category: "RELATED" as const,
+        finalScore: 0.9,
+        evidence: { overlappingProductionPaths: ["src/d.ts"] },
+      },
+    ],
+  };
 }
 
 describe("dashboard API routes", () => {
@@ -436,5 +527,56 @@ describe("dashboard API routes", () => {
     expect(response.body.sets[0].members.map((entry: { prNumber: number }) => entry.prNumber)).toEqual(
       [101, 102],
     );
+  });
+
+  it("sorts duplicate sets by score, chip count, and PR count", async () => {
+    const fixtures = makeDuplicateSetSortFixtures();
+    const { app } = makeApp({
+      storageOverrides: {
+        listDuplicateSetNodes: vi.fn(async () => fixtures.nodes),
+        listDuplicateSetEdges: vi.fn(async () => fixtures.edges),
+      },
+    });
+
+    const response = await request(app).get("/api/repos/123/duplicate-sets").expect(200);
+
+    expect(
+      response.body.sets.map(
+        (set: { maxScore: number; size: number; categories: string[] }) => ({
+          maxScore: set.maxScore,
+          size: set.size,
+          categories: set.categories,
+        }),
+      ),
+    ).toEqual([
+      { maxScore: 1, size: 2, categories: ["SAME_FEATURE"] },
+      { maxScore: 1, size: 3, categories: ["SAME_FEATURE"] },
+      { maxScore: 1, size: 3, categories: ["RELATED", "SAME_FEATURE"] },
+      { maxScore: 0.9, size: 2, categories: ["RELATED"] },
+    ]);
+  });
+
+  it("encodes duplicate-set cursor with chip count and PR count sort keys", async () => {
+    const fixtures = makeDuplicateSetSortFixtures();
+    const { app } = makeApp({
+      storageOverrides: {
+        listDuplicateSetNodes: vi.fn(async () => fixtures.nodes),
+        listDuplicateSetEdges: vi.fn(async () => fixtures.edges),
+      },
+    });
+
+    const response = await request(app)
+      .get("/api/repos/123/duplicate-sets")
+      .query({ limit: 2 })
+      .expect(200);
+
+    const decoded = decodeDuplicateSetCursor(response.body.nextCursor);
+    expect(decoded).toEqual({
+      maxScore: 1,
+      categoryCount: 1,
+      size: 3,
+      lastAnalyzedAt: "2026-02-17T12:12:00.000Z",
+      setId: expect.any(String),
+    });
   });
 });

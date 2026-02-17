@@ -14,11 +14,9 @@ import { verifyWebhookSignature } from "@clawtriage/github";
 import { Storage, type TriageQueueItem } from "@clawtriage/storage";
 import {
   buildDuplicateSets,
-  compareDuplicateSets,
+  compareDuplicateSetToCursor,
   decodeDuplicateSetCursor,
   encodeDuplicateSetCursor,
-  type DuplicateSetCursor,
-  type DuplicateSetSummary,
 } from "./duplicate-sets.js";
 
 type StorageLike = Pick<
@@ -706,16 +704,7 @@ app.get("/api/repos/:repoId/duplicate-sets", dashboardTokenMiddleware, async (re
     let sets = buildDuplicateSets(nodes, edges);
 
     if (cursor) {
-      const cursorSet: DuplicateSetSummary = {
-        setId: cursor.setId,
-        size: 0,
-        maxScore: cursor.maxScore,
-        categories: [],
-        lastAnalyzedAt: new Date(cursor.lastAnalyzedAt),
-        members: [],
-        strongestEdges: [],
-      };
-      sets = sets.filter((set) => compareDuplicateSets(set, cursorSet) > 0);
+      sets = sets.filter((set) => compareDuplicateSetToCursor(set, cursor) > 0);
     }
 
     const hasMore = sets.length > limit;
@@ -752,6 +741,8 @@ app.get("/api/repos/:repoId/duplicate-sets", dashboardTokenMiddleware, async (re
         hasMore && last
           ? encodeDuplicateSetCursor({
               maxScore: last.maxScore,
+              categoryCount: last.categories.length,
+              size: last.size,
               lastAnalyzedAt: last.lastAnalyzedAt.toISOString(),
               setId: last.setId,
             })

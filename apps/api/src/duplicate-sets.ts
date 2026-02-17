@@ -34,7 +34,17 @@ export interface DuplicateSetSummary {
 
 export interface DuplicateSetCursor {
   maxScore: number;
+  categoryCount: number;
+  size: number;
   lastAnalyzedAt: string;
+  setId: string;
+}
+
+interface DuplicateSetSortKey {
+  maxScore: number;
+  categoryCount: number;
+  size: number;
+  lastAnalyzedAtMs: number;
   setId: string;
 }
 
@@ -58,6 +68,8 @@ export function decodeDuplicateSetCursor(value: string): DuplicateSetCursor | nu
   try {
     const decoded = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as {
       maxScore?: number;
+      categoryCount?: number;
+      size?: number;
       lastAnalyzedAt?: string;
       setId?: string;
     };
@@ -65,6 +77,12 @@ export function decodeDuplicateSetCursor(value: string): DuplicateSetCursor | nu
     if (
       typeof decoded.maxScore !== "number" ||
       !Number.isFinite(decoded.maxScore) ||
+      typeof decoded.categoryCount !== "number" ||
+      !Number.isInteger(decoded.categoryCount) ||
+      decoded.categoryCount < 1 ||
+      typeof decoded.size !== "number" ||
+      !Number.isInteger(decoded.size) ||
+      decoded.size < 2 ||
       typeof decoded.lastAnalyzedAt !== "string" ||
       Number.isNaN(new Date(decoded.lastAnalyzedAt).valueOf()) ||
       typeof decoded.setId !== "string" ||
@@ -75,6 +93,8 @@ export function decodeDuplicateSetCursor(value: string): DuplicateSetCursor | nu
 
     return {
       maxScore: decoded.maxScore,
+      categoryCount: decoded.categoryCount,
+      size: decoded.size,
       lastAnalyzedAt: decoded.lastAnalyzedAt,
       setId: decoded.setId,
     };
@@ -83,18 +103,52 @@ export function decodeDuplicateSetCursor(value: string): DuplicateSetCursor | nu
   }
 }
 
-export function compareDuplicateSets(a: DuplicateSetSummary, b: DuplicateSetSummary): number {
+function toSortKeyFromSummary(set: DuplicateSetSummary): DuplicateSetSortKey {
+  return {
+    maxScore: set.maxScore,
+    categoryCount: set.categories.length,
+    size: set.size,
+    lastAnalyzedAtMs: set.lastAnalyzedAt.getTime(),
+    setId: set.setId,
+  };
+}
+
+function toSortKeyFromCursor(cursor: DuplicateSetCursor): DuplicateSetSortKey {
+  return {
+    maxScore: cursor.maxScore,
+    categoryCount: cursor.categoryCount,
+    size: cursor.size,
+    lastAnalyzedAtMs: new Date(cursor.lastAnalyzedAt).getTime(),
+    setId: cursor.setId,
+  };
+}
+
+function compareDuplicateSetSortKeys(a: DuplicateSetSortKey, b: DuplicateSetSortKey): number {
   if (a.maxScore !== b.maxScore) {
     return a.maxScore > b.maxScore ? -1 : 1;
   }
 
-  const aTs = a.lastAnalyzedAt.getTime();
-  const bTs = b.lastAnalyzedAt.getTime();
-  if (aTs !== bTs) {
-    return aTs > bTs ? -1 : 1;
+  if (a.categoryCount !== b.categoryCount) {
+    return a.categoryCount - b.categoryCount;
+  }
+
+  if (a.size !== b.size) {
+    return a.size - b.size;
+  }
+
+  if (a.lastAnalyzedAtMs !== b.lastAnalyzedAtMs) {
+    return a.lastAnalyzedAtMs > b.lastAnalyzedAtMs ? -1 : 1;
   }
 
   return a.setId.localeCompare(b.setId);
+}
+
+export function compareDuplicateSets(a: DuplicateSetSummary, b: DuplicateSetSummary): number {
+  return compareDuplicateSetSortKeys(toSortKeyFromSummary(a), toSortKeyFromSummary(b));
+}
+
+export function compareDuplicateSetToCursor(set: DuplicateSetSummary, cursor: DuplicateSetCursor): number {
+  return compareDuplicateSetSortKeys(toSortKeyFromSummary(set), toSortKeyFromCursor(cursor));
 }
 
 export function buildDuplicateSets(

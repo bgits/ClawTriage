@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDuplicateSets,
+  compareDuplicateSetToCursor,
   compareDuplicateSets,
   decodeDuplicateSetCursor,
   encodeDuplicateSetCursor,
@@ -93,44 +94,117 @@ describe("duplicate set derivation", () => {
     expect(sets[0].strongestEdges[0].score).toBe(0.92);
   });
 
-  it("sorts sets by score desc, then analyzed time desc, then set id asc", () => {
-    const a: DuplicateSetSummary = {
-      setId: "bbbb",
-      size: 2,
-      maxScore: 0.9,
-      categories: ["SAME_CHANGE"],
-      lastAnalyzedAt: new Date("2026-02-17T12:00:00Z"),
-      members: [],
-      strongestEdges: [],
-    };
+  it("sorts sets by score, then category count, then set size, then analyzed time, then set id", () => {
+    const sets: DuplicateSetSummary[] = [
+      {
+        setId: "dddd",
+        size: 2,
+        maxScore: 0.9,
+        categories: ["SAME_CHANGE", "SAME_FEATURE"],
+        lastAnalyzedAt: new Date("2026-02-20T12:00:00Z"),
+        members: [],
+        strongestEdges: [],
+      },
+      {
+        setId: "bbbb",
+        size: 3,
+        maxScore: 0.9,
+        categories: ["SAME_CHANGE"],
+        lastAnalyzedAt: new Date("2026-02-17T12:00:00Z"),
+        members: [],
+        strongestEdges: [],
+      },
+      {
+        setId: "aaaa",
+        size: 3,
+        maxScore: 0.9,
+        categories: ["SAME_CHANGE"],
+        lastAnalyzedAt: new Date("2026-02-17T12:00:00Z"),
+        members: [],
+        strongestEdges: [],
+      },
+      {
+        setId: "cccc",
+        size: 5,
+        maxScore: 0.9,
+        categories: ["SAME_CHANGE"],
+        lastAnalyzedAt: new Date("2026-02-19T12:00:00Z"),
+        members: [],
+        strongestEdges: [],
+      },
+      {
+        setId: "zzzz",
+        size: 3,
+        maxScore: 0.9,
+        categories: ["SAME_FEATURE"],
+        lastAnalyzedAt: new Date("2026-02-18T12:00:00Z"),
+        members: [],
+        strongestEdges: [],
+      },
+      {
+        setId: "eeee",
+        size: 2,
+        maxScore: 0.8,
+        categories: ["SAME_FEATURE"],
+        lastAnalyzedAt: new Date("2026-02-21T12:00:00Z"),
+        members: [],
+        strongestEdges: [],
+      },
+    ];
 
-    const b: DuplicateSetSummary = {
-      setId: "aaaa",
-      size: 2,
-      maxScore: 0.9,
-      categories: ["SAME_CHANGE"],
-      lastAnalyzedAt: new Date("2026-02-17T12:00:00Z"),
-      members: [],
-      strongestEdges: [],
-    };
+    const sorted = sets.sort(compareDuplicateSets);
+    expect(sorted.map((entry) => entry.setId)).toEqual(["zzzz", "aaaa", "bbbb", "cccc", "dddd", "eeee"]);
+  });
 
-    const c: DuplicateSetSummary = {
+  it("compares set ordering against cursor using the same sort keys", () => {
+    const cursor = {
+      maxScore: 0.9,
+      categoryCount: 1,
+      size: 5,
+      lastAnalyzedAt: "2026-02-19T12:00:00Z",
       setId: "cccc",
+    };
+
+    const newerSimpleSmaller: DuplicateSetSummary = {
+      setId: "zzzz",
+      size: 3,
+      maxScore: 0.9,
+      categories: ["SAME_FEATURE"],
+      lastAnalyzedAt: new Date("2026-02-20T12:00:00Z"),
+      members: [],
+      strongestEdges: [],
+    };
+
+    const largerCategorySet: DuplicateSetSummary = {
+      setId: "dddd",
+      size: 2,
+      maxScore: 0.9,
+      categories: ["SAME_CHANGE", "SAME_FEATURE"],
+      lastAnalyzedAt: new Date("2026-02-20T12:00:00Z"),
+      members: [],
+      strongestEdges: [],
+    };
+
+    const lowerScoreSet: DuplicateSetSummary = {
+      setId: "eeee",
       size: 2,
       maxScore: 0.8,
       categories: ["SAME_FEATURE"],
-      lastAnalyzedAt: new Date("2026-02-18T12:00:00Z"),
+      lastAnalyzedAt: new Date("2026-02-20T12:00:00Z"),
       members: [],
       strongestEdges: [],
     };
 
-    const sorted = [a, b, c].sort(compareDuplicateSets);
-    expect(sorted.map((entry) => entry.setId)).toEqual(["aaaa", "bbbb", "cccc"]);
+    expect(compareDuplicateSetToCursor(newerSimpleSmaller, cursor)).toBeLessThan(0);
+    expect(compareDuplicateSetToCursor(largerCategorySet, cursor)).toBeGreaterThan(0);
+    expect(compareDuplicateSetToCursor(lowerScoreSet, cursor)).toBeGreaterThan(0);
   });
 
   it("round-trips duplicate set cursor", () => {
     const encoded = encodeDuplicateSetCursor({
       maxScore: 0.88,
+      categoryCount: 2,
+      size: 4,
       lastAnalyzedAt: "2026-02-17T12:00:00Z",
       setId: "set-alpha",
     });
@@ -138,10 +212,21 @@ describe("duplicate set derivation", () => {
     const decoded = decodeDuplicateSetCursor(encoded);
     expect(decoded).toEqual({
       maxScore: 0.88,
+      categoryCount: 2,
+      size: 4,
       lastAnalyzedAt: "2026-02-17T12:00:00Z",
       setId: "set-alpha",
     });
 
+    const legacyCursor = Buffer.from(
+      JSON.stringify({
+        maxScore: 0.88,
+        lastAnalyzedAt: "2026-02-17T12:00:00Z",
+        setId: "set-alpha",
+      }),
+      "utf8",
+    ).toString("base64url");
+    expect(decodeDuplicateSetCursor(legacyCursor)).toBeNull();
     expect(decodeDuplicateSetCursor("invalid")).toBeNull();
   });
 });
