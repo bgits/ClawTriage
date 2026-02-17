@@ -1,4 +1,12 @@
-# ClawTriage (working name)
+<p align="center">
+  <img src="assets/readme-title.png" alt="ClawTriage title image" width="680" />
+</p>
+
+<p align="center">
+  <a href="https://clawtriage.fly.dev/"><strong>Latest Deployment: clawtriage.fly.dev</strong></a>
+</p>
+
+# ClawTriage - Pull Request Deduplication
 
 A GitHub App + worker pipeline that triages PRs and issues at scale:
 - detects duplicate PRs (same change / same feature / competing implementations)
