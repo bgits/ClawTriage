@@ -1,0 +1,19 @@
+{
+  "name": "@clawtriage/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run --passWithNoTests",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@clawtriage/core": "workspace:*",
+    "@clawtriage/github": "workspace:*",
+    "@clawtriage/storage": "workspace:*",
+    "bullmq": "^5.43.0",
+    "ioredis": "^5.4.2"
+  }
+}

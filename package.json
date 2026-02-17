@@ -1,0 +1,19 @@
+{
+  "name": "clawtriage",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.12.3",
+  "scripts": {
+    "dev": "concurrently -n api,worker -c blue,green \"pnpm --filter @clawtriage/api dev\" \"pnpm --filter @clawtriage/worker dev\"",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "db:migrate": "pnpm --filter @clawtriage/storage db:migrate"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.2",
+    "vitest": "^2.1.8"
+  }
+}

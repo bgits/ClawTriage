@@ -1,0 +1,15 @@
+{
+  "name": "@clawtriage/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "minimatch": "^10.0.1",
+    "yaml": "^2.7.1"
+  }
+}

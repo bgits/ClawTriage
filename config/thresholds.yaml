@@ -3,7 +3,7 @@ version: 1
 # Global behavior toggles
 actions:
   publish_check_run: true
-  apply_labels: true
+  apply_labels: false
   post_comment_on_same_change: false  # keep quiet by default
 
 # Candidate generation

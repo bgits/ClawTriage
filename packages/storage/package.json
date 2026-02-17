@@ -1,0 +1,19 @@
+{
+  "name": "@clawtriage/storage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "db:migrate": "tsx src/migrate.ts",
+    "test": "vitest run --passWithNoTests",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@clawtriage/core": "workspace:*",
+    "pg": "^8.13.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.11"
+  }
+}
