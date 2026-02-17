@@ -5,6 +5,9 @@
   "packageManager": "pnpm@9.12.3",
   "scripts": {
     "dev": "concurrently -n api,worker,dashboard -c blue,green,yellow \"pnpm --filter @clawtriage/api dev\" \"pnpm --filter @clawtriage/worker dev\" \"pnpm --filter @clawtriage/dashboard dev\"",
+    "start:fly": "bash scripts/start-fly.sh",
+    "deploy:fly": "bash scripts/deploy-fly.sh",
+    "trigger:scan": "bash scripts/trigger-public-scan.sh",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "db:migrate": "pnpm --filter @clawtriage/storage db:migrate",

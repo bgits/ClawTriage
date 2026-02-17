@@ -1,8 +1,12 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import express, { type NextFunction, type Request, type Response } from "express";
 import {
   JOB_NAMES,
   WEBHOOK_PROCESSABLE_PR_ACTIONS,
   buildIngestPrJobId,
+  buildPublicPrScanJobId,
+  type PublicPrScanJobPayload,
   type RuntimeConfig,
   type TriageCategory,
 } from "@clawtriage/core";
@@ -34,9 +38,18 @@ type StorageLike = Pick<
 >;
 
 interface QueueLike {
-  add(
+  addIngestPr(
     name: string,
     data: unknown,
+    opts?: {
+      jobId?: string;
+      removeOnComplete?: number | boolean;
+      removeOnFail?: number | boolean;
+    },
+  ): Promise<unknown>;
+  addPublicPrScan(
+    name: string,
+    data: PublicPrScanJobPayload,
     opts?: {
       jobId?: string;
       removeOnComplete?: number | boolean;
@@ -203,6 +216,112 @@ function requireDashboardToken(runtime: RuntimeConfig) {
   };
 }
 
+function requireOpsTriggerToken(runtime: RuntimeConfig) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!runtime.opsTriggerToken) {
+      res.status(500).json({
+        error: {
+          code: "CONFIG_ERROR",
+          message: "OPS_TRIGGER_TOKEN is required for ops trigger endpoints",
+        },
+      });
+      return;
+    }
+
+    const tokenHeader = req.header("authorization") ?? req.header("x-admin-token");
+    const token = tokenHeader?.replace(/^Bearer\s+/i, "").trim();
+
+    if (!token || token !== runtime.opsTriggerToken) {
+      res.status(401).json({
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Missing or invalid ops trigger token",
+        },
+      });
+      return;
+    }
+
+    next();
+  };
+}
+
+interface PublicScanRequestBody {
+  owner?: unknown;
+  repo?: unknown;
+  maxOpenPrs?: unknown;
+  snapshot?: unknown;
+}
+
+function parseOwnerOrRepo(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  if (!/^[A-Za-z0-9_.-]+$/.test(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+function parseOptionalMaxOpenPrs(value: unknown): number | undefined | null {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 1000) {
+    return null;
+  }
+  return parsed;
+}
+
+function parseOptionalSnapshot(value: unknown): string | undefined | null {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > 120) {
+    return null;
+  }
+
+  if (!/^[A-Za-z0-9._:-]+$/.test(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+function makeSnapshotId(now: Date): string {
+  return now.toISOString().replace(/[^0-9a-z]/gi, "-").toLowerCase();
+}
+
+function normalizeRepoKey(owner: string, repo: string): string {
+  return `${owner.toLowerCase()}/${repo.toLowerCase()}`;
+}
+
+function resolveDashboardStaticDir(runtime: RuntimeConfig): string | null {
+  const explicit = runtime.dashboardStaticDir?.trim();
+  if (explicit) {
+    const indexPath = path.join(explicit, "index.html");
+    return existsSync(indexPath) ? explicit : null;
+  }
+
+  const fallback = path.resolve(process.cwd(), "apps/dashboard/dist");
+  const fallbackIndex = path.join(fallback, "index.html");
+  return existsSync(fallbackIndex) ? fallback : null;
+}
+
 function normalizeQueueItem(item: TriageQueueItem) {
   return {
     repoId: item.repoId,
@@ -225,11 +344,99 @@ function normalizeQueueItem(item: TriageQueueItem) {
 export function createApiApp(params: CreateApiAppParams): express.Express {
   const { runtime, storage, queue } = params;
   const dashboardTokenMiddleware = requireDashboardToken(runtime);
+  const opsTriggerTokenMiddleware = requireOpsTriggerToken(runtime);
+  const dashboardStaticDir = resolveDashboardStaticDir(runtime);
   const app = express();
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
+
+app.post(
+  "/api/ops/public-scan",
+  express.json({ limit: "16kb" }),
+  opsTriggerTokenMiddleware,
+  async (req, res) => {
+    const body = (req.body ?? {}) as PublicScanRequestBody;
+
+    const owner = parseOwnerOrRepo(body.owner);
+    const repo = parseOwnerOrRepo(body.repo);
+    const maxOpenPrs = parseOptionalMaxOpenPrs(body.maxOpenPrs);
+    const snapshotInput = parseOptionalSnapshot(body.snapshot);
+
+    if (!owner || !repo) {
+      res.status(400).json({
+        error: {
+          code: "BAD_REQUEST",
+          message: "owner and repo are required and must match [A-Za-z0-9_.-]+",
+        },
+      });
+      return;
+    }
+
+    if (maxOpenPrs === null) {
+      res.status(400).json({
+        error: {
+          code: "BAD_REQUEST",
+          message: "maxOpenPrs must be a positive integer between 1 and 1000 when provided",
+        },
+      });
+      return;
+    }
+
+    if (snapshotInput === null) {
+      res.status(400).json({
+        error: {
+          code: "BAD_REQUEST",
+          message: "snapshot must be a string containing only [A-Za-z0-9._:-] and <= 120 chars",
+        },
+      });
+      return;
+    }
+
+    const repoKey = normalizeRepoKey(owner, repo);
+    if (!runtime.publicScanAllowedRepos.includes(repoKey)) {
+      res.status(403).json({
+        error: {
+          code: "FORBIDDEN",
+          message: `Repository ${repoKey} is not allowed for ops-triggered public scans`,
+        },
+      });
+      return;
+    }
+
+    const payload: PublicPrScanJobPayload = {
+      owner,
+      repo,
+      maxOpenPrs,
+      snapshot: snapshotInput ?? makeSnapshotId(new Date()),
+    };
+    const jobId = buildPublicPrScanJobId(payload);
+
+    try {
+      await queue.addPublicPrScan(JOB_NAMES.publicPrScan, payload, {
+        jobId,
+        removeOnComplete: 100,
+        removeOnFail: 100,
+      });
+
+      res.status(202).json({
+        enqueued: true,
+        jobId,
+        owner: payload.owner,
+        repo: payload.repo,
+        snapshot: payload.snapshot,
+      });
+    } catch (error) {
+      res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: (error as Error).message,
+        },
+      });
+    }
+  },
+);
 
 app.get("/api/repos", dashboardTokenMiddleware, async (_req, res) => {
   try {
@@ -695,7 +902,7 @@ app.post("/webhooks/github", express.raw({ type: "*/*" }), async (req, res) => {
       action,
     };
 
-    await queue.add(JOB_NAMES.ingestPr, jobPayload, {
+    await queue.addIngestPr(JOB_NAMES.ingestPr, jobPayload, {
       jobId: buildIngestPrJobId(jobPayload),
       removeOnComplete: 500,
       removeOnFail: 1000,
@@ -714,6 +921,28 @@ app.post("/webhooks/github", express.raw({ type: "*/*" }), async (req, res) => {
     });
   }
 });
+
+if (dashboardStaticDir) {
+  app.use(
+    express.static(dashboardStaticDir, {
+      index: false,
+      maxAge: "1h",
+    }),
+  );
+
+  app.get("*", (req, res, next) => {
+    if (
+      req.path.startsWith("/api/") ||
+      req.path === "/api" ||
+      req.path.startsWith("/webhooks/")
+    ) {
+      next();
+      return;
+    }
+
+    res.sendFile(path.join(dashboardStaticDir, "index.html"));
+  });
+}
 
   return app;
 }

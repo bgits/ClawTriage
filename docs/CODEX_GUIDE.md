@@ -8,6 +8,7 @@ This file is instructions for an implementation agent to build ClawTriage withou
 - Separate pure logic (signatures/scoring) from I/O (GitHub/db/git).
 - Every computed suggestion must include an evidence bundle.
 - Default behavior must be quiet (Check Runs + dashboard); avoid comments.
+- Documentation safety rule: never include identifying local paths, usernames, machine hostnames, private repo/org names, tokens, or secrets in docs/examples. Use repo-relative paths and placeholders (for example `apps/api/src/index.ts`, `<your-app-name>`, `<owner>/<repo>`).
 
 ## Deliverables checklist (by phase)
 Phase 0:

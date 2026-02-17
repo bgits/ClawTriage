@@ -50,10 +50,22 @@ Typical local flow:
 Dashboard auth behavior is controlled by:
 - `DASHBOARD_AUTH_MODE=auto|required|disabled`
 - `DASHBOARD_TOKEN=<token>`
+- `OPS_TRIGGER_TOKEN=<token>` for `POST /api/ops/public-scan`
+- `PUBLIC_SCAN_ALLOWED_REPOS=<owner/repo,...>` allowlist for ops-triggered scans
 
 Dashboard repository behavior is controlled by:
 - `VITE_DASHBOARD_REPO_ID=<repo_id>` (fixed repository id for single-repo dashboard view)
 - `VITE_DASHBOARD_REPO_OWNER=<owner>` and `VITE_DASHBOARD_REPO_NAME=<name>` (optional display label)
+
+## Fly deployment (single app)
+- Build + run API, worker, and dashboard from one Fly app (`fly.toml` + `Dockerfile`)
+- One-command deploy: `pnpm deploy:fly`
+- Runtime entrypoint: `pnpm start:fly`
+- Deploy manually with Fly CLI (`flyctl`) instead of CI deploy workflow.
+- Manual authorized trigger command:
+  - `FLY_APP_URL=https://<app>.fly.dev OPS_TRIGGER_TOKEN=<token> pnpm trigger:scan --owner <owner> --repo <repo>`
+- Fly-native scheduled trigger can call the same endpoint at a chosen interval.
+- `docker-compose.yml` is local-development only; Fly does not run Docker Compose services.
 
 ## Repo structure (recommended)
 - apps/
@@ -71,6 +83,8 @@ Dashboard repository behavior is controlled by:
 - docs/
   - ARCHITECTURE.md
   - EXECUTION_PLAN.md
+  - FLY_DEPLOYMENT_EXECUTION_PLAN.md
+  - FLY_BEGINNER_DEPLOYMENT_GUIDE.md
   - REQUIREMENTS.md
   - ALGORITHMS.md
   - GITHUB_APP_SETUP.md

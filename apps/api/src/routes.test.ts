@@ -13,6 +13,9 @@ function makeRuntime(overrides: Partial<RuntimeConfig> = {}): RuntimeConfig {
     githubPrivateKeyPem: "private-key",
     dashboardToken: "dashboard-token",
     dashboardAuthMode: "disabled",
+    dashboardStaticDir: undefined,
+    opsTriggerToken: "ops-trigger-token",
+    publicScanAllowedRepos: ["openclaw/openclaw"],
     workerConcurrency: 1,
     checkRunName: "ClawTriage Duplicate Triage",
     signatureVersion: 1,
@@ -54,7 +57,8 @@ function makeApp(params?: {
   } as Record<string, unknown>;
 
   const queue = {
-    add: vi.fn(async () => undefined),
+    addIngestPr: vi.fn(async () => undefined),
+    addPublicPrScan: vi.fn(async () => undefined),
   };
 
   const app = createApiApp({
@@ -67,6 +71,65 @@ function makeApp(params?: {
 }
 
 describe("dashboard API routes", () => {
+  it("requires ops token for public scan trigger", async () => {
+    const { app } = makeApp();
+
+    await request(app).post("/api/ops/public-scan").send({ owner: "openclaw", repo: "openclaw" }).expect(401);
+
+    await request(app)
+      .post("/api/ops/public-scan")
+      .set("Authorization", "Bearer ops-trigger-token")
+      .send({ owner: "openclaw", repo: "openclaw" })
+      .expect(202);
+  });
+
+  it("enforces public scan allowlist", async () => {
+    const { app } = makeApp({
+      runtimeOverrides: {
+        publicScanAllowedRepos: ["openclaw/openclaw"],
+      },
+    });
+
+    await request(app)
+      .post("/api/ops/public-scan")
+      .set("Authorization", "Bearer ops-trigger-token")
+      .send({ owner: "otherorg", repo: "repo" })
+      .expect(403);
+  });
+
+  it("enqueues public scan job with deterministic id", async () => {
+    const { app, queue } = makeApp({
+      runtimeOverrides: {
+        publicScanAllowedRepos: ["openclaw/openclaw"],
+      },
+    });
+
+    const response = await request(app)
+      .post("/api/ops/public-scan")
+      .set("Authorization", "Bearer ops-trigger-token")
+      .send({
+        owner: "openclaw",
+        repo: "openclaw",
+        snapshot: "2026-02-17t120000z",
+        maxOpenPrs: 25,
+      })
+      .expect(202);
+
+    expect(queue.addPublicPrScan).toHaveBeenCalledWith(
+      "public-pr-scan",
+      expect.objectContaining({
+        owner: "openclaw",
+        repo: "openclaw",
+        snapshot: "2026-02-17t120000z",
+        maxOpenPrs: 25,
+      }),
+      expect.objectContaining({
+        jobId: "public-pr-scan-openclaw-openclaw-2026-02-17t120000z",
+      }),
+    );
+    expect(response.body.enqueued).toBe(true);
+  });
+
   it("enforces dashboard token when auth mode is required", async () => {
     const { app } = makeApp({
       runtimeOverrides: {

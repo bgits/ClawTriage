@@ -320,6 +320,37 @@ Response examples:
 { "skipped": true }
 ```
 
+### Ops public scan trigger
+`POST /api/ops/public-scan`
+
+Authentication:
+- `Authorization: Bearer <OPS_TRIGGER_TOKEN>`
+
+Notes:
+- target repository must be included in `PUBLIC_SCAN_ALLOWED_REPOS` (`owner/repo` list)
+- intended for trusted automation (for example GitHub Actions push/cron workflows)
+
+Request body:
+```json
+{
+  "owner": "openclaw",
+  "repo": "openclaw",
+  "maxOpenPrs": 50,
+  "snapshot": "12345-1-schedule"
+}
+```
+
+Response:
+```json
+{
+  "enqueued": true,
+  "jobId": "public-pr-scan-openclaw-openclaw-12345-1-schedule",
+  "owner": "openclaw",
+  "repo": "openclaw",
+  "snapshot": "12345-1-schedule"
+}
+```
+
 ---
 
 ## Future endpoints (not yet implemented)

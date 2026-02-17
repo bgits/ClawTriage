@@ -38,6 +38,28 @@ function parseDashboardAuthMode(): "auto" | "required" | "disabled" {
   );
 }
 
+function parsePublicScanAllowedRepos(): string[] {
+  const raw = process.env.PUBLIC_SCAN_ALLOWED_REPOS ?? "";
+  if (raw.trim() === "") {
+    return [];
+  }
+
+  const entries = raw
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+
+  for (const entry of entries) {
+    if (!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(entry)) {
+      throw new Error(
+        `Invalid PUBLIC_SCAN_ALLOWED_REPOS entry: ${entry}. Expected owner/repo`,
+      );
+    }
+  }
+
+  return Array.from(new Set(entries));
+}
+
 export function loadRuntimeConfig(): RuntimeConfig {
   const githubAppIdValue = requireEnv("GITHUB_APP_ID");
   const githubAppId = Number(githubAppIdValue);
@@ -55,6 +77,9 @@ export function loadRuntimeConfig(): RuntimeConfig {
     githubPrivateKeyPem: requireEnv("GITHUB_PRIVATE_KEY_PEM").replace(/\\n/g, "\n"),
     dashboardToken: process.env.DASHBOARD_TOKEN,
     dashboardAuthMode: parseDashboardAuthMode(),
+    dashboardStaticDir: process.env.DASHBOARD_STATIC_DIR?.trim() || undefined,
+    opsTriggerToken: process.env.OPS_TRIGGER_TOKEN?.trim() || undefined,
+    publicScanAllowedRepos: parsePublicScanAllowedRepos(),
     workerConcurrency: parseNumber("WORKER_CONCURRENCY", 4),
     checkRunName: process.env.CHECK_RUN_NAME ?? "ClawTriage Duplicate Triage",
     signatureVersion: parseNumber("SIGNATURE_VERSION", SIGNATURE_VERSION),

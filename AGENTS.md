@@ -118,6 +118,7 @@ If evidence is missing, the suggestion is invalid.
 - Do not log secrets or raw full diff contents by default.
 - Backoff/retry on GitHub rate limits.
 - Processing must be idempotent (webhooks can be delivered multiple times).
+- Documentation must not contain identifying local machine details (absolute home paths, usernames, hostnames, private org/repo names) or secret-like values. Use repo-relative paths and placeholders.
 
 ---
 

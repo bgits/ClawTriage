@@ -27,16 +27,25 @@ function toBullMqConnection(redisUrl: string) {
 const queue = new Queue(QUEUE_NAMES.ingestPr, {
   connection: toBullMqConnection(runtime.redisUrl),
 });
+const publicScanQueue = new Queue(QUEUE_NAMES.publicPrScan, {
+  connection: toBullMqConnection(runtime.redisUrl),
+});
 
 const app = createApiApp({
   runtime,
   storage,
   queue: {
-    add: (name, data, opts) =>
+    addIngestPr: (name, data, opts) =>
       queue.add(name, data as { [key: string]: unknown }, {
         jobId: opts?.jobId,
         removeOnComplete: opts?.removeOnComplete ?? 500,
         removeOnFail: opts?.removeOnFail ?? 1000,
+      }),
+    addPublicPrScan: (name, data, opts) =>
+      publicScanQueue.add(name, data, {
+        jobId: opts?.jobId,
+        removeOnComplete: opts?.removeOnComplete ?? 100,
+        removeOnFail: opts?.removeOnFail ?? 100,
       }),
   },
 });
@@ -49,6 +58,7 @@ const server = app.listen(runtime.port, () => {
 async function shutdown() {
   server.close();
   await queue.close();
+  await publicScanQueue.close();
   await storage.close();
 }
 
