@@ -184,9 +184,13 @@ describe("Dashboard App", () => {
       expect(screen.getByTestId("set-item-set-beta")).toBeInTheDocument();
     });
 
+    expect(screen.queryByText("Set Details")).not.toBeInTheDocument();
+    expect(screen.queryByText("Feature branch one")).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByTestId("set-item-set-beta"));
 
     await waitFor(() => {
+      expect(screen.getByText("Set Details")).toBeInTheDocument();
       expect(screen.getByText("Feature branch one")).toBeInTheDocument();
     });
   });

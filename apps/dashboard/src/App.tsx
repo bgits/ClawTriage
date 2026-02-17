@@ -240,9 +240,13 @@ export default function App() {
       return;
     }
 
-    const hasSelected = selectedSetId && duplicateSets.some((set) => set.setId === selectedSetId);
+    if (!selectedSetId) {
+      return;
+    }
+
+    const hasSelected = duplicateSets.some((set) => set.setId === selectedSetId);
     if (!hasSelected) {
-      setSelectedSetId(duplicateSets[0].setId);
+      setSelectedSetId(null);
     }
   }, [duplicateSets, selectedSetId]);
 
@@ -364,7 +368,7 @@ export default function App() {
 
       {errorMessage ? <div className="error-banner">{errorMessage}</div> : null}
 
-      <main className="main-grid">
+      <main className={selectedSet ? "main-grid with-detail" : "main-grid"}>
         <section className="panel sets-panel">
           <div className="panel-header">
             <div className="panel-title-with-help">
@@ -426,102 +430,98 @@ export default function App() {
           </div>
         </section>
 
-        <section className="panel detail-panel">
-          <div className="panel-header">
-            <h2>Set Details</h2>
-            <span>{selectedSet ? `Set ${selectedSet.setId}` : "No set selected"}</span>
-          </div>
+        {selectedSet ? (
+          <section className="panel detail-panel">
+            <div className="panel-header">
+              <h2>Set Details</h2>
+              <span>{`Set ${selectedSet.setId}`}</span>
+            </div>
 
-          {!selectedSet ? <p className="empty">Select a set to inspect member PRs and strongest links.</p> : null}
+            <div className="detail-block">
+              <h3>Members</h3>
+              <ul className="member-list">
+                {selectedSet.members.map((member) => (
+                  <li key={`${member.prId}:${member.headSha}`}>
+                    <a href={member.url} target="_blank" rel="noreferrer">
+                      #{member.prNumber}
+                    </a>
+                    <span className="member-title">{member.title}</span>
+                    <span className="member-sha">{shortSha(member.headSha)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-          {selectedSet ? (
-            <>
-              <div className="detail-block">
-                <h3>Members</h3>
-                <ul className="member-list">
-                  {selectedSet.members.map((member) => (
-                    <li key={`${member.prId}:${member.headSha}`}>
-                      <a href={member.url} target="_blank" rel="noreferrer">
-                        #{member.prNumber}
+            <div className="detail-block">
+              <h3>Strongest Edges</h3>
+              <p className="detail-note">{EDGE_INTERPRETATION_HELP_TEXT}</p>
+              {selectedSet.strongestEdges.length === 0 ? <p className="empty">No edge evidence available.</p> : null}
+              <ul className="edge-list">
+                {selectedSet.strongestEdges.map((edge, index) => (
+                  <li key={`${selectedSet.setId}-edge-${index}`}>
+                    <div className="edge-head">
+                      <a href={edge.fromPrUrl} target="_blank" rel="noreferrer">
+                        #{edge.fromPrNumber}
                       </a>
-                      <span className="member-title">{member.title}</span>
-                      <span className="member-sha">{shortSha(member.headSha)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="detail-block">
-                <h3>Strongest Edges</h3>
-                <p className="detail-note">{EDGE_INTERPRETATION_HELP_TEXT}</p>
-                {selectedSet.strongestEdges.length === 0 ? <p className="empty">No edge evidence available.</p> : null}
-                <ul className="edge-list">
-                  {selectedSet.strongestEdges.map((edge, index) => (
-                    <li key={`${selectedSet.setId}-edge-${index}`}>
-                      <div className="edge-head">
-                        <a href={edge.fromPrUrl} target="_blank" rel="noreferrer">
-                          #{edge.fromPrNumber}
-                        </a>
-                        <span>↔</span>
-                        <a href={edge.toPrUrl} target="_blank" rel="noreferrer">
-                          #{edge.toPrNumber}
-                        </a>
-                        <span className={categoryClass(edge.category)}>{edge.category}</span>
-                        <strong>{edge.score.toFixed(3)}</strong>
-                      </div>
-                      <p>{summarizeEvidence(edge.evidence)}</p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </>
-          ) : null}
-        </section>
-
-        <aside className="panel runs-panel">
-          <div className="panel-header">
-            <h2>Most Recent Runs</h2>
-            <span>{triageRuns.length} PRs</span>
-          </div>
-
-          {isLoadingData ? <p className="loading">Loading run results...</p> : null}
-          {!isLoadingData && triageRuns.length === 0 ? (
-            <p className="empty">No recent run results for current filters.</p>
-          ) : null}
-
-          <ul className="run-list">
-            {triageRuns.map((item) => (
-              <li key={`${item.prId}:${item.headSha}`}>
-                <a
-                  data-testid={`recent-run-link-${item.prNumber}`}
-                  href={item.prUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  #{item.prNumber}
-                </a>
-                <p>{item.title}</p>
-                <div className="run-meta">
-                  <span>{formatTimestamp(item.lastAnalyzedAt)}</span>
-                  {item.topSuggestion ? (
-                    <>
-                      <span className={categoryClass(item.topSuggestion.category)}>
-                        {item.topSuggestion.category}
-                      </span>
-                      <a href={item.topSuggestion.candidatePrUrl} target="_blank" rel="noreferrer">
-                        #{item.topSuggestion.candidatePrNumber}
+                      <span>↔</span>
+                      <a href={edge.toPrUrl} target="_blank" rel="noreferrer">
+                        #{edge.toPrNumber}
                       </a>
-                      <strong>{item.topSuggestion.score.toFixed(3)}</strong>
-                    </>
-                  ) : (
-                    <span className="muted">No candidate suggestions</span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </aside>
+                      <span className={categoryClass(edge.category)}>{edge.category}</span>
+                      <strong>{edge.score.toFixed(3)}</strong>
+                    </div>
+                    <p>{summarizeEvidence(edge.evidence)}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        ) : null}
       </main>
+
+      <section className="panel runs-panel">
+        <div className="panel-header">
+          <h2>Most Recent Runs</h2>
+          <span>{triageRuns.length} PRs</span>
+        </div>
+
+        {isLoadingData ? <p className="loading">Loading run results...</p> : null}
+        {!isLoadingData && triageRuns.length === 0 ? (
+          <p className="empty">No recent run results for current filters.</p>
+        ) : null}
+
+        <ul className="run-list">
+          {triageRuns.map((item) => (
+            <li key={`${item.prId}:${item.headSha}`}>
+              <a
+                data-testid={`recent-run-link-${item.prNumber}`}
+                href={item.prUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                #{item.prNumber}
+              </a>
+              <p>{item.title}</p>
+              <div className="run-meta">
+                <span>{formatTimestamp(item.lastAnalyzedAt)}</span>
+                {item.topSuggestion ? (
+                  <>
+                    <span className={categoryClass(item.topSuggestion.category)}>
+                      {item.topSuggestion.category}
+                    </span>
+                    <a href={item.topSuggestion.candidatePrUrl} target="_blank" rel="noreferrer">
+                      #{item.topSuggestion.candidatePrNumber}
+                    </a>
+                    <strong>{item.topSuggestion.score.toFixed(3)}</strong>
+                  </>
+                ) : (
+                  <span className="muted">No candidate suggestions</span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
