@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/readme-title.png" alt="ClawTriage title image" width="680" />
+  <img src="assets/readme-title.png" alt="ClawTriage title image" width="360" />
 </p>
 
 <p align="center">
