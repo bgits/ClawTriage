@@ -51,6 +51,10 @@ Dashboard auth behavior is controlled by:
 - `DASHBOARD_AUTH_MODE=auto|required|disabled`
 - `DASHBOARD_TOKEN=<token>`
 
+Dashboard repository behavior is controlled by:
+- `VITE_DASHBOARD_REPO_ID=<repo_id>` (fixed repository id for single-repo dashboard view)
+- `VITE_DASHBOARD_REPO_OWNER=<owner>` and `VITE_DASHBOARD_REPO_NAME=<name>` (optional display label)
+
 ## Repo structure (recommended)
 - apps/
   - api/          webhook receiver + dashboard API

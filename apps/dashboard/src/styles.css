@@ -99,6 +99,16 @@ select {
   padding: 0.45rem 0.5rem;
 }
 
+.repo-display {
+  min-width: 180px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-main);
+  padding: 0.45rem 0.5rem;
+  line-height: 1.25;
+}
+
 .checkbox-label {
   display: flex;
   flex-direction: row !important;

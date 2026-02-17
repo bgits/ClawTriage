@@ -167,6 +167,16 @@ describe("Dashboard App", () => {
     );
   });
 
+  it("shows a fixed repository display instead of a selector", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("repository-display")).toHaveTextContent("openclaw/clawtriage");
+    });
+
+    expect(screen.queryByRole("combobox", { name: "Repository" })).not.toBeInTheDocument();
+  });
+
   it("updates details when selecting a different set", async () => {
     render(<App />);
 

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { listDuplicateSets, listRepos, listTriageQueue } from "./api";
 import type {
   DuplicateSet,
-  Repo,
   TriageCategory,
   TriageQueueItem,
 } from "./types";
@@ -15,6 +14,30 @@ const CATEGORY_OPTIONS: TriageCategory[] = [
   "NOT_RELATED",
   "UNCERTAIN",
 ];
+
+const CONFIGURED_REPO_ID_RAW = (import.meta.env.VITE_DASHBOARD_REPO_ID ?? "").trim();
+const CONFIGURED_REPO_OWNER = (import.meta.env.VITE_DASHBOARD_REPO_OWNER ?? "").trim();
+const CONFIGURED_REPO_NAME = (import.meta.env.VITE_DASHBOARD_REPO_NAME ?? "").trim();
+const HAS_CONFIGURED_REPO_ID = CONFIGURED_REPO_ID_RAW.length > 0;
+
+function parseConfiguredRepoId(): number | null {
+  if (!HAS_CONFIGURED_REPO_ID) {
+    return null;
+  }
+
+  const repoId = Number(CONFIGURED_REPO_ID_RAW);
+  if (!Number.isInteger(repoId) || repoId <= 0) {
+    return null;
+  }
+
+  return repoId;
+}
+
+const CONFIGURED_REPO_ID = parseConfiguredRepoId();
+const CONFIGURED_REPO_LABEL =
+  CONFIGURED_REPO_OWNER.length > 0 && CONFIGURED_REPO_NAME.length > 0
+    ? `${CONFIGURED_REPO_OWNER}/${CONFIGURED_REPO_NAME}`
+    : null;
 
 function shortSha(sha: string): string {
   return sha.slice(0, 7);
@@ -90,8 +113,10 @@ function categoryClass(category: TriageCategory): string {
 }
 
 export default function App() {
-  const [repos, setRepos] = useState<Repo[]>([]);
-  const [selectedRepoId, setSelectedRepoId] = useState<number | null>(null);
+  const [selectedRepoId, setSelectedRepoId] = useState<number | null>(CONFIGURED_REPO_ID);
+  const [repoDisplayName, setRepoDisplayName] = useState<string>(
+    CONFIGURED_REPO_LABEL ?? (CONFIGURED_REPO_ID ? `repo:${CONFIGURED_REPO_ID}` : "Loading..."),
+  );
   const [needsReview, setNeedsReview] = useState(true);
   const [minScore, setMinScore] = useState(0.55);
   const [categories, setCategories] = useState<TriageCategory[]>([...CATEGORY_OPTIONS]);
@@ -100,33 +125,54 @@ export default function App() {
   const [triageRuns, setTriageRuns] = useState<TriageQueueItem[]>([]);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
 
-  const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (HAS_CONFIGURED_REPO_ID && !CONFIGURED_REPO_ID) {
+      setErrorMessage(
+        "Invalid VITE_DASHBOARD_REPO_ID. Set it to a positive integer.",
+      );
+      setSelectedRepoId(null);
+      return;
+    }
+
     let cancelled = false;
 
-    setIsLoadingRepos(true);
+    setErrorMessage(null);
     listRepos()
       .then((result) => {
         if (cancelled) {
           return;
         }
 
-        setRepos(result);
-        if (result.length > 0) {
-          setSelectedRepoId(result[0].repoId);
+        if (result.length === 0) {
+          setSelectedRepoId(null);
+          setRepoDisplayName("No repositories");
+          setErrorMessage("No repositories available for this dashboard.");
+          return;
         }
+
+        const configuredRepo =
+          CONFIGURED_REPO_ID !== null
+            ? result.find((repo) => repo.repoId === CONFIGURED_REPO_ID) ?? null
+            : null;
+
+        if (CONFIGURED_REPO_ID !== null && !configuredRepo) {
+          setSelectedRepoId(null);
+          setErrorMessage(
+            `Configured repository id ${CONFIGURED_REPO_ID} is not available to this dashboard.`,
+          );
+          return;
+        }
+
+        const activeRepo = configuredRepo ?? result[0];
+        setSelectedRepoId(activeRepo.repoId);
+        setRepoDisplayName(CONFIGURED_REPO_LABEL ?? `${activeRepo.owner}/${activeRepo.name}`);
       })
       .catch((error: Error) => {
         if (!cancelled) {
           setErrorMessage(error.message);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoadingRepos(false);
         }
       });
 
@@ -225,17 +271,9 @@ export default function App() {
         <div className="controls">
           <label>
             Repository
-            <select
-              value={selectedRepoId ?? ""}
-              onChange={(event) => setSelectedRepoId(Number(event.target.value))}
-              disabled={isLoadingRepos || repos.length === 0}
-            >
-              {repos.map((repo) => (
-                <option key={repo.repoId} value={repo.repoId}>
-                  {repo.owner}/{repo.name}
-                </option>
-              ))}
-            </select>
+            <div data-testid="repository-display" className="repo-display">
+              {repoDisplayName}
+            </div>
           </label>
 
           <label>
