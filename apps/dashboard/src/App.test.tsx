@@ -153,14 +153,24 @@ describe("Dashboard App", () => {
     vi.stubGlobal("fetch", fetchMock);
   });
 
-  it("renders duplicate sets and recent runs", async () => {
+  it("renders duplicate sets and keeps recent runs collapsed by default", async () => {
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getByText("Set set-alpha")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Most Recent Runs")).toBeInTheDocument();
+    const runsToggle = screen.getByTestId("runs-panel-toggle");
+    expect(runsToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("recent-run-link-3101")).not.toBeInTheDocument();
+
+    fireEvent.click(runsToggle);
+
+    await waitFor(() => {
+      expect(runsToggle).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByTestId("recent-run-link-3101")).toBeInTheDocument();
+    });
+
     expect(screen.getByTestId("recent-run-link-3101")).toHaveAttribute(
       "href",
       "https://github.com/org/repo/pull/3101",
@@ -217,6 +227,12 @@ describe("Dashboard App", () => {
 
   it("renders external links for member and edge PRs", async () => {
     render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Show runs" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Show runs" }));
 
     await waitFor(() => {
       expect(screen.getByTestId("recent-run-link-3101")).toBeInTheDocument();

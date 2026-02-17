@@ -129,6 +129,7 @@ export default function App() {
 
   const [duplicateSets, setDuplicateSets] = useState<DuplicateSet[]>([]);
   const [triageRuns, setTriageRuns] = useState<TriageQueueItem[]>([]);
+  const [isRunsPanelExpanded, setIsRunsPanelExpanded] = useState(false);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
 
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -480,47 +481,69 @@ export default function App() {
       </main>
 
       <section className="panel runs-panel">
-        <div className="panel-header">
+        <div className="panel-header runs-panel-header">
           <h2>Most Recent Runs</h2>
-          <span>{triageRuns.length} PRs</span>
+          <div className="runs-panel-header-actions">
+            <span>{triageRuns.length} PRs</span>
+            <button
+              type="button"
+              className="runs-toggle"
+              data-testid="runs-panel-toggle"
+              aria-expanded={isRunsPanelExpanded}
+              aria-controls="recent-runs-content"
+              onClick={() => setIsRunsPanelExpanded((current) => !current)}
+            >
+              {isRunsPanelExpanded ? "Hide runs" : "Show runs"}
+            </button>
+          </div>
         </div>
 
-        {isLoadingData ? <p className="loading">Loading run results...</p> : null}
-        {!isLoadingData && triageRuns.length === 0 ? (
-          <p className="empty">No recent run results for current filters.</p>
+        {!isRunsPanelExpanded ? (
+          <p className="runs-collapsed-note">
+            Hidden by default to keep focus on duplicate set review.
+          </p>
         ) : null}
 
-        <ul className="run-list">
-          {triageRuns.map((item) => (
-            <li key={`${item.prId}:${item.headSha}`}>
-              <a
-                data-testid={`recent-run-link-${item.prNumber}`}
-                href={item.prUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                #{item.prNumber}
-              </a>
-              <p>{item.title}</p>
-              <div className="run-meta">
-                <span>{formatTimestamp(item.lastAnalyzedAt)}</span>
-                {item.topSuggestion ? (
-                  <>
-                    <span className={categoryClass(item.topSuggestion.category)}>
-                      {item.topSuggestion.category}
-                    </span>
-                    <a href={item.topSuggestion.candidatePrUrl} target="_blank" rel="noreferrer">
-                      #{item.topSuggestion.candidatePrNumber}
-                    </a>
-                    <strong>{item.topSuggestion.score.toFixed(3)}</strong>
-                  </>
-                ) : (
-                  <span className="muted">No candidate suggestions</span>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        {isRunsPanelExpanded ? (
+          <div id="recent-runs-content" className="runs-panel-content">
+            {isLoadingData ? <p className="loading">Loading run results...</p> : null}
+            {!isLoadingData && triageRuns.length === 0 ? (
+              <p className="empty">No recent run results for current filters.</p>
+            ) : null}
+
+            <ul className="run-list">
+              {triageRuns.map((item) => (
+                <li key={`${item.prId}:${item.headSha}`}>
+                  <a
+                    data-testid={`recent-run-link-${item.prNumber}`}
+                    href={item.prUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    #{item.prNumber}
+                  </a>
+                  <p>{item.title}</p>
+                  <div className="run-meta">
+                    <span>{formatTimestamp(item.lastAnalyzedAt)}</span>
+                    {item.topSuggestion ? (
+                      <>
+                        <span className={categoryClass(item.topSuggestion.category)}>
+                          {item.topSuggestion.category}
+                        </span>
+                        <a href={item.topSuggestion.candidatePrUrl} target="_blank" rel="noreferrer">
+                          #{item.topSuggestion.candidatePrNumber}
+                        </a>
+                        <strong>{item.topSuggestion.score.toFixed(3)}</strong>
+                      </>
+                    ) : (
+                      <span className="muted">No candidate suggestions</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
     </div>
   );

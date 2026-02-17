@@ -346,6 +346,59 @@ select {
   font-size: 0.82rem;
 }
 
+.runs-panel-header {
+  align-items: center;
+}
+
+.runs-panel-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.runs-toggle {
+  border: 1px solid rgba(16, 33, 46, 0.28);
+  border-radius: 999px;
+  padding: 0.24rem 0.62rem;
+  background: #fff;
+  color: #2c404d;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.runs-toggle:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 95, 115, 0.58);
+}
+
+.runs-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.runs-toggle[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #f8feff;
+}
+
+.runs-collapsed-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.runs-panel-content {
+  display: grid;
+  gap: 0.55rem;
+}
+
 .loading,
 .empty,
 .muted {
