@@ -1,14 +1,10 @@
 <p align="center">
-  <img src="assets/readme-title.png" alt="ClawTriage title image" width="360" />
-</p>
-
-<p align="center">
   <a href="https://clawtriage.fly.dev/"><strong>Latest Deployment: clawtriage.fly.dev</strong></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/bgits/ClawTriage/actions/workflows/ci.yml">
-    <img src="https://github.com/bgits/ClawTriage/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status" />
+    <img src="https://github.com/bgits/ClawTriage/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI status" />
   </a>
 </p>
 
