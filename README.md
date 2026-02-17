@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://clawtriage.fly.dev/"><strong>Latest Deployment: clawtriage.fly.dev</strong></a>
+  <a href="https://clawtriage.fly.dev/" target="_blank" rel="noopener noreferrer"><strong>Latest Deployment: clawtriage.fly.dev</strong></a>
 </p>
 
 <p align="center">
