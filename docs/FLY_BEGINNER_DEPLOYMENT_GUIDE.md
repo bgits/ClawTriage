@@ -9,11 +9,14 @@ One Fly app runs:
 1. API
 2. Worker
 3. Dashboard frontend (served by the API)
+4. Postgres (inside the same container)
+5. Redis (inside the same container)
 
 Important:
 1. `docker-compose.yml` is for local development only.
 2. Fly does not run your Docker Compose services in production.
-3. Postgres and Redis must be provisioned separately, then connected with `DATABASE_URL` and `REDIS_URL`.
+3. Persistence comes from a Fly volume mounted at `/data`.
+4. If the volume is deleted, app data is lost (you can re-run scans from GitHub).
 
 ## Step 0: Install prerequisites
 
@@ -56,38 +59,23 @@ fly apps create <your-app-name>
 
 If it says the app already exists, continue to the next step.
 
-## Step 2: Create Postgres (Managed Postgres)
+## Step 2: Create persistent volume (required)
 
-1. Create a cluster:
+Create a volume named `data` for the app:
 ```bash
-fly mpg create --name <your-pg-name> --region ord
+fly volumes create data --app <your-app-name> --region ord --size 10
 ```
 
-2. List clusters and copy the cluster ID:
+Notes:
+1. `--size 10` means 10GB; increase if needed.
+2. Keep region aligned with `fly.toml` primary region.
+
+Verify volume:
 ```bash
-fly mpg list
+fly volumes list -a <your-app-name>
 ```
 
-3. Attach Postgres to your app (this sets `DATABASE_URL` secret automatically):
-```bash
-fly mpg attach <CLUSTER_ID> -a <your-app-name>
-```
-
-## Step 3: Create Redis (Upstash Redis)
-
-1. Create Redis:
-```bash
-fly redis create --name <your-redis-name> --region ord
-```
-
-2. Copy the private Redis URL from command output.
-
-3. Set `REDIS_URL` on your app:
-```bash
-fly secrets set -a <your-app-name> REDIS_URL="redis://default:<password>@<host>:<port>"
-```
-
-## Step 4: Set required app secrets
+## Step 3: Set required app secrets
 
 Generate secure tokens:
 ```bash
@@ -117,7 +105,10 @@ fly secrets set -a <your-app-name> DASHBOARD_AUTH_MODE=disabled
 fly secrets set -a <your-app-name> DASHBOARD_AUTH_MODE=required DASHBOARD_TOKEN="<your_dashboard_token>"
 ```
 
-## Step 5: Deploy the app
+You do not need to set `DATABASE_URL` or `REDIS_URL` for this all-in-one mode.
+The startup script sets local defaults to `127.0.0.1` and initializes services automatically.
+
+## Step 4: Deploy the app
 
 From the repository root:
 ```bash
@@ -129,16 +120,13 @@ This runs:
 2. `flyctl scale count app=1`
 3. `flyctl status`
 
-## Step 6: Run database migrations
+The container startup script:
+1. starts Postgres on localhost
+2. starts Redis on localhost
+3. runs `pnpm db:migrate`
+4. starts API + worker
 
-After the first deploy, run migrations inside the Fly machine:
-```bash
-fly ssh console -a <your-app-name> -C "pnpm db:migrate"
-```
-
-Run this again any time new migrations are added.
-
-## Step 7: Verify deployment
+## Step 5: Verify deployment
 
 1. Health endpoint:
 ```bash
@@ -159,7 +147,17 @@ fly scale show -a <your-app-name>
 fly open -a <your-app-name>
 ```
 
-## Step 8: Trigger a scan manually (authorized push workflow replacement)
+4. Verify in-machine services:
+```bash
+fly ssh console -a <your-app-name> -C "pg_isready -h 127.0.0.1 -p 5432 && redis-cli -h 127.0.0.1 -p 6379 ping"
+```
+
+Expected final line:
+```text
+PONG
+```
+
+## Step 6: Trigger a scan manually (authorized push workflow replacement)
 
 Use the built-in script:
 ```bash
@@ -175,7 +173,7 @@ OPS_TRIGGER_TOKEN="<your_ops_trigger_token>" \
 pnpm trigger:scan --owner <owner> --repo <repo> --max-open-prs 50
 ```
 
-## Step 9: Add scheduled runs (Fly-native cron style)
+## Step 7: Add scheduled runs (Fly-native cron style)
 
 Fly scheduled Machines support coarse intervals (`hourly`, `daily`, `monthly`).
 
@@ -209,11 +207,11 @@ fly machine list -a <your-cron-app-name>
 
 ## Common first-time mistakes
 
-1. Forgetting to set `REDIS_URL` on Fly after creating Redis.
+1. Forgetting to create the `data` volume before deploy.
 2. Forgetting `PUBLIC_SCAN_ALLOWED_REPOS` (ops trigger will return `403`).
 3. Using local `docker-compose.yml` as if Fly will run it.
-4. Skipping `pnpm db:migrate` after first deploy.
-5. Setting `DASHBOARD_AUTH_MODE=auto` in production without `DASHBOARD_TOKEN`.
+4. Setting `DASHBOARD_AUTH_MODE=auto` in production without `DASHBOARD_TOKEN`.
+5. Running too little memory for all-in-one mode (use at least 2GB in `fly.toml`).
 
 ## Quick recovery commands
 

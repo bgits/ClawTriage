@@ -1,6 +1,11 @@
 FROM node:20-alpine
 
-RUN apk add --no-cache bash
+RUN apk add --no-cache \
+  bash \
+  postgresql17 \
+  postgresql17-client \
+  redis \
+  su-exec
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -26,7 +31,15 @@ RUN pnpm dashboard:build
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV DASHBOARD_STATIC_DIR=/app/apps/dashboard/dist
+ENV DATA_ROOT=/data
+ENV POSTGRES_HOST=127.0.0.1
+ENV POSTGRES_PORT=5432
+ENV POSTGRES_USER=postgres
+ENV POSTGRES_DB=clawtriage
+ENV REDIS_HOST=127.0.0.1
+ENV REDIS_PORT=6379
 
 EXPOSE 3000
+VOLUME ["/data"]
 
 CMD ["pnpm", "start:fly"]

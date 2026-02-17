@@ -58,13 +58,14 @@ Dashboard repository behavior is controlled by:
 - `VITE_DASHBOARD_REPO_OWNER=<owner>` and `VITE_DASHBOARD_REPO_NAME=<name>` (optional display label)
 
 ## Fly deployment (single app)
-- Build + run API, worker, and dashboard from one Fly app (`fly.toml` + `Dockerfile`)
+- Build + run API, worker, dashboard, Postgres, and Redis from one Fly app/machine (`fly.toml` + `Dockerfile`)
 - One-command deploy: `pnpm deploy:fly`
 - Runtime entrypoint: `pnpm start:fly`
 - Deploy manually with Fly CLI (`flyctl`) instead of CI deploy workflow.
 - Manual authorized trigger command:
   - `FLY_APP_URL=https://<app>.fly.dev OPS_TRIGGER_TOKEN=<token> pnpm trigger:scan --owner <owner> --repo <repo>`
 - Fly-native scheduled trigger can call the same endpoint at a chosen interval.
+- Create a Fly volume named `data` and mount to `/data` for Postgres/Redis persistence.
 - `docker-compose.yml` is local-development only; Fly does not run Docker Compose services.
 
 ## Repo structure (recommended)

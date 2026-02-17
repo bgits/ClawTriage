@@ -33,7 +33,7 @@ Assumption:
 ## Target topology
 
 Single Fly app, one process group, one machine:
-- one container runs API + worker processes
+- one container runs API + worker + embedded Postgres + embedded Redis
 - dashboard frontend is built to static assets and served by the API process
 - API serves `/api/health`, webhook ingest, dashboard/ops endpoints
 - worker consumes BullMQ jobs and performs analysis
@@ -41,13 +41,14 @@ Single Fly app, one process group, one machine:
   - `/api/*` -> API routes
   - `/` and frontend routes -> static dashboard app
 
-Data services remain external:
-- Postgres: managed instance (Fly Postgres or external provider)
-- Redis: managed Redis (Upstash or equivalent)
+Data persistence:
+- one Fly volume mounted at `/data`
+- Postgres data under `/data/postgres`
+- Redis append-only data under `/data/redis`
 
 Rationale:
-- preserves one-machine runtime for app logic
-- avoids running extra Fly machines for DB/Redis in this phase
+- keeps deployment to one app and one machine
+- acceptable tradeoff for non-mission-critical derived data
 
 ## Phase 1: Production runtime packaging (single app)
 
@@ -67,8 +68,10 @@ Rationale:
 
 4. Add a process supervisor shell entrypoint:
 - `scripts/start-fly.sh`
+- initializes and starts Postgres and Redis on localhost
+- runs DB migrations
 - starts API + worker
-- traps `SIGTERM`/`SIGINT` and shuts down both cleanly
+- traps `SIGTERM`/`SIGINT` and shuts down all processes cleanly
 
 5. Keep health probe on API:
 - `GET /api/health` stays the liveness/readiness probe
@@ -80,6 +83,7 @@ Rationale:
 - single region (`primary_region`)
 - HTTP service mapped to API `PORT`
 - health checks to `/api/health`
+- volume mount at `/data`
 - `auto_stop_machines = "off"`
 - `min_machines_running = 1`
 
@@ -155,13 +159,15 @@ Why this pattern:
 ## Phase 6: Secrets and configuration
 
 Fly secrets:
-- `DATABASE_URL`
-- `REDIS_URL`
 - `GITHUB_APP_ID`
 - `GITHUB_PRIVATE_KEY_PEM`
 - `GITHUB_WEBHOOK_SECRET`
 - `DASHBOARD_TOKEN`
 - `OPS_TRIGGER_TOKEN`
+- `PUBLIC_SCAN_ALLOWED_REPOS`
+
+Fly volume:
+- `data` volume mounted to `/data` (required for persistence)
 
 Frontend/API origin model in single-app mode:
 - no separate dashboard host is required
@@ -171,29 +177,32 @@ Frontend/API origin model in single-app mode:
 ## Rollout checklist
 
 1. Create Fly app and set all required secrets.
-2. Deploy with `pnpm deploy:fly`.
-3. Verify exactly one machine is running.
-4. Verify `/api/health` and webhook endpoint are reachable.
-5. Verify dashboard UI loads from the same Fly app URL.
-6. Trigger one manual authorized scan and confirm enqueue.
-7. Configure Fly scheduled trigger and wait one interval.
-8. Verify scheduled run enqueues and processes successfully.
+2. Create `data` volume in the same region.
+3. Deploy with `pnpm deploy:fly`.
+4. Verify exactly one machine is running.
+5. Verify `/api/health` and webhook endpoint are reachable.
+6. Verify dashboard UI loads from the same Fly app URL.
+7. Trigger one manual authorized scan and confirm enqueue.
+8. Configure Fly scheduled trigger and wait one interval.
+9. Verify scheduled run enqueues and processes successfully.
 
 ## Acceptance criteria
 
 1. Deploy succeeds via single command: `pnpm deploy:fly`.
 2. App runs with one Fly machine (`app=1`) after deploy.
-3. Dashboard frontend is served by the same Fly app (no separate frontend deployment).
-4. Authorized manual trigger enqueues scan job.
-5. Scheduled cron trigger enqueues scan job at configured interval.
-6. Unauthorized token cannot trigger scan job.
-7. Job processing remains idempotent and quiet by default.
+3. Embedded Postgres and Redis start correctly in the same machine.
+4. Dashboard frontend is served by the same Fly app (no separate frontend deployment).
+5. Authorized manual trigger enqueues scan job.
+6. Scheduled cron trigger enqueues scan job at configured interval.
+7. Unauthorized token cannot trigger scan job.
+8. Job processing remains idempotent and quiet by default.
 
 ## Risks and tradeoffs
 
 1. Single machine is a single point of failure.
-2. API, worker, and dashboard share CPU/memory; large ingest bursts may impact API/UI latency.
-3. Fly scheduler cadence is coarser than full cron expressions.
+2. API, worker, dashboard, Postgres, and Redis share CPU/memory; large ingest bursts may impact latency.
+3. Volume corruption/deletion loses local state; recovery is by re-ingest from GitHub.
+4. Fly scheduler cadence is coarser than full cron expressions.
 
 ## Optional Fly-native scheduler alternative
 
